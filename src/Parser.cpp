@@ -176,8 +176,12 @@ AST* Parser::parseFunction() {
     }
 
     if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
-        idx++;
+        if(isBuiltin(name)) {
+            lex.error(current(), "Builtin Funciton Cannot Be Overrided.");
+            return nullptr;
+        }
         
+        idx++;
         if(current().token == TOKEN_EOL)
             idx++;
         
@@ -201,7 +205,7 @@ AST* Parser::parseFunction() {
         functionTable.insert({name, fn});
         return fn;
     }
-    else if(current().token == TOKEN_LPAREN && current().value == "(") {    
+    else if(current().token == TOKEN_LPAREN && current().value == "(") {
         idx++;
         while(current().token != TOKEN_RPAREN) {
             if(current().token != TOKEN_IDENTIFIER && current().token != TOKEN_NUMBER && current().token != TOKEN_COMMA) {
@@ -220,8 +224,12 @@ AST* Parser::parseFunction() {
         
         idx++;
         if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
+            if(isBuiltin(name)) {
+                lex.error(current(), "Builtin Funciton Cannot Be Overrided.");
+                return nullptr;
+            }
+
             idx++;
-            
             if(current().token == TOKEN_EOL)
                 idx++;
             
@@ -420,6 +428,11 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
     else if(auto fn = dynamic_cast<FunctionNode*>(node))
         return 0L;
     else if(auto a = dynamic_cast<AssignNode*>(node)) {
+        if(isBuiltin(a->name)) {
+            lex.error(current(), "Builtin Funciton Cannot Be Overrided.");
+            return nullptr;
+        }
+
         if(functionTable.find(a->name) != functionTable.end())
             functionTable.erase(a->name);
 

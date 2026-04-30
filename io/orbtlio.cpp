@@ -6,21 +6,35 @@
  */
 
 #include <iostream>
-#include <orbtlio.h>
-#include <Parser.h>
 #include <cstdbool>
 #include <map>
+#include <memory>
+#include <orbtlio.h>
+#include <Parser.h>
 
 bool isInitialized = false;
 extern std::map<std::string, VariableInfo> variableTable;
 extern std::map<std::string, FunctionNode*> functionTable;
+const std::map<std::string, std::unique_ptr<FunctionNode>> builtin = [] {
+    std::map<std::string, std::unique_ptr<FunctionNode>> m;
+    m["print"] = std::make_unique<FunctionNode>("print", std::vector<std::string>{"text"});
+    return m;
+}();
 
-/* bool isBuiltin(std::string function) {
-	return BuiltinFunctions.find(function) != BuiltinFunctions.end();
-} */
+
+bool isBuiltin(std::string function) {
+	if(!isInitialized)
+		init(); // Initialize If Not Initialized
+
+	return builtin.find(function) != builtin.end();
+}
 
 void init() {
-	functionTable.insert({ "print", new FunctionNode("print", { "text" })});
+	for (auto const& [name, node] : builtin) {
+		functionTable.emplace(name, node.get());
+	}
+
+	isInitialized = true;
 }
 
 void exec(CallNode* cn) {

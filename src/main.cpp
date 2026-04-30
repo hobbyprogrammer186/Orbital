@@ -16,6 +16,9 @@
 
 int main() {
     std::string code = R"(
+print:
+    SayHello
+
 SayHelloWorld:
     print "Hello World!"
 
