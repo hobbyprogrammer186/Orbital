@@ -414,7 +414,10 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
 
         exec(c);
         for (AST* stmt : fn->body) {
-            Evalulate(stmt);
+            if(isBuiltin(c->name))
+                exec(c);
+            else
+                Evalulate(stmt);
         }
 
         for(std::string argName : fn->args) {
