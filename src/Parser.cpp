@@ -438,7 +438,15 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
                 if constexpr (std::is_same_v<T, std::string>) return v;
                 else return std::to_string(v);
             }, argValue);
-            vinfo.dtype = DATA_TYPE_STRING;
+            vinfo.dtype = std::visit([](auto&& v) -> DATA_TYPE {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, std::string>) return DATA_TYPE_STRING;
+                else if constexpr (std::is_same_v<T, int>) return DATA_TYPE_INT;
+                else if constexpr (std::is_same_v<T, float>) return DATA_TYPE_FLOAT;
+                else if constexpr (std::is_same_v<T, double>) return DATA_TYPE_DOUBLE;
+                else if (vinfo.value == "True" || vinfo.value == "False") return DATA_TYPE_BOOLEAN;
+                else return DATA_TYPE_STRING;
+            }, argValue);
             vinfo.isConst = false;
 
             variableTable[argName] = vinfo;
@@ -478,13 +486,18 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             if constexpr (std::is_same_v<T, std::string>) return v;
             else return std::to_string(v);
         }, val);
-        vinfo.dtype = DATA_TYPE_STRING;
+        vinfo.dtype = std::visit([](auto&& v) -> DATA_TYPE {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, std::string>) return DATA_TYPE_STRING;
+            else if constexpr (std::is_same_v<T, int>) return DATA_TYPE_INT;
+            else if constexpr (std::is_same_v<T, float>) return DATA_TYPE_FLOAT;
+            else if constexpr (std::is_same_v<T, double>) return DATA_TYPE_DOUBLE;
+            else if (vinfo.value == "True" || vinfo.value == "False") return DATA_TYPE_BOOLEAN;
+            else return DATA_TYPE_STRING;
+        }, argValue);
         vinfo.isConst = false;
-        if(variableTable.find(a->name) == variableTable.end())
-            variableTable.insert({a->name, vinfo});
-        else
-            variableTable[a->name] = vinfo;
-        
+
+        variableTable.insert({a->name, vinfo});
         return val;
     }
     else if(auto bl = dynamic_cast<BooleanNode*>(node)) {
