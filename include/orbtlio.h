@@ -11,3 +11,4 @@ struct CallNode;
 
 extern void init();
 extern void exec(CallNode* cn);
+extern bool isBuiltin(std::string function);
