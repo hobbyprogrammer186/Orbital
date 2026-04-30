@@ -16,17 +16,9 @@
 
 int main() {
     std::string code = R"(
-print:
-    SayHello
-
-SayHelloWorld:
-    print "Hello World!"
-
-SayHello(nickname):
-    print("Hello " + nickname)
-
-SayHello "Earth"
-SayHelloWorld
+x = 1
+y = 1
+print(x == y)
 )";
     init();
 

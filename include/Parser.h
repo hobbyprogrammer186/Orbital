@@ -22,7 +22,7 @@ typedef enum {
 	DATA_TYPE_INT,
 	DATA_TYPE_FLOAT,
 	DATA_TYPE_DOUBLE,
-	DATA_TYPE_FUNCTION
+	DATA_TYPE_BOOLEAN
 } DATA_TYPE;
 
 struct VariableInfo {
@@ -84,6 +84,14 @@ struct CallNode : AST {
 	CallNode(std::string n, std::vector<AST*> a) : name(std::move(n)), args(std::move(a)) {}
 };
 
+struct BooleanNode : AST {
+	AST* left;
+	AST* right;
+	TOKEN_TYPE op;
+
+	BooleanNode(AST* l, TOKEN_TYPE o, AST* r) : left(l), op(o), right(r) {}
+};
+
 class Parser {
 private:
 	std::vector<TOKEN> tokens;
@@ -96,6 +104,7 @@ private:
 	AST* factor();
 	AST* term();
 	AST* expr();
+	AST* comparison();
 	AST* statement();
 	std::vector<AST*> parse();
 	std::vector<AST*> parseBlocks();

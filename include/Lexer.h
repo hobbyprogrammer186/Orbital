@@ -97,6 +97,9 @@ static std::unordered_map<std::string, TOKEN_TYPE> keywords = {
     {"else", TOKEN_ELSE},
     {"elif", TOKEN_ELIF},
 
+    {"Greater", TOKEN_GREATER},
+    {"Shorter", TOKEN_SHORTER},
+
     {"switch", TOKEN_SWITCH},
     {"case", TOKEN_CASE},
     {"default", TOKEN_DEFAULT},

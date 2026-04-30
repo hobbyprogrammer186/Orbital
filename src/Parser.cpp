@@ -61,14 +61,15 @@ AST* Parser::factor() {
         return node;
     }
     else if(match(TOKEN_IDENTIFIER)) {
-        if(functionTable.find(tkn.value) != functionTable.end() && idx + 1 < tokens.size() && tokens[idx + 1].token == TOKEN_LPAREN) {
-            while(current().value == tkn.value || current().value == "(")
-                idx++;
+        if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && tokens[idx].token == TOKEN_LPAREN) {
+            idx++; // skip '('
             
             std::vector<AST*> args;
             while(current().token != TOKEN_RPAREN) {
-                args.push_back(expr());
+                args.push_back(comparison());
 
+                if(current().token == TOKEN_RPAREN)
+                    break;
                 if(current().token == TOKEN_COMMA)
                     idx++;
                 else if(current().token != TOKEN_EOL && current().token != TOKEN_SEMICOLON) {
@@ -82,13 +83,13 @@ AST* Parser::factor() {
             else
                 return new CallNode(tkn.value);
         }
-        else if(functionTable.find(tkn.value) != functionTable.end() && idx + 1 < tokens.size()) {
+        else if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && current().token != TOKEN_LPAREN) {
             while(current().value == tkn.value)
                 idx++;
             
             std::vector<AST*> args;
             while(current().token != TOKEN_EOL) {
-                args.push_back(expr());
+                args.push_back(comparison());
 
                 if(current().token == TOKEN_COMMA)
                     idx++;
@@ -134,6 +135,20 @@ AST* Parser::expr() {
     return node;
 }
 
+AST* Parser::comparison() {
+    AST* node = expr();
+    while(current().token == TOKEN_GREATER || current().token == TOKEN_SHORTER
+            || current().token == TOKEN_GREATER_EQUAL || current().token == TOKEN_SHORTER_EQUAL
+            || current().token == TOKEN_EQUAL)
+    {
+        TOKEN_TYPE op = current().token;
+        idx++;
+        AST* right = expr();
+        node = new BooleanNode(node, op, right);
+    }
+    return node;
+}
+
 AST* Parser::statement() {
     if(current().token == TOKEN_IDENTIFIER) {
         if(idx < tokens.size() - 1) {
@@ -159,6 +174,23 @@ AST* Parser::statement() {
                 AST* value = expr();
                 return new AssignNode(name, value);
             }
+            else if(next.token == TOKEN_GREATER || next.token == TOKEN_SHORTER
+                    || next.token == TOKEN_GREATER_EQUAL || next.token == TOKEN_SHORTER_EQUAL
+                    || next.token == TOKEN_EQUAL)
+            {
+                AST* left = expr();
+                TOKEN_TYPE op = current().token;
+                idx++;
+                AST* right = expr();
+                
+                // If Failed To Parse Condition Othwise Returns BooleanNode
+                if(left == nullptr || right == nullptr) {
+                    lex.error(current(), "Syntax Error.");
+                    return nullptr;
+                }
+                else
+                    return new BooleanNode(left, op, right);
+            }
         }
     }
     else return expr();
@@ -177,7 +209,7 @@ AST* Parser::parseFunction() {
 
     if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
         if(isBuiltin(name)) {
-            lex.error(current(), "Builtin Funciton Cannot Be Overrided.");
+            lex.error(current(), "Builtin Funciton Cannot Be Overrided/Overwritten.");
             return nullptr;
         }
         
@@ -225,7 +257,7 @@ AST* Parser::parseFunction() {
         idx++;
         if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
             if(isBuiltin(name)) {
-                lex.error(current(), "Builtin Funciton Cannot Be Overrided.");
+                lex.error(current(), "Builtin Funciton Cannot Be Overrided/Overwritten.");
                 return nullptr;
             }
 
@@ -412,11 +444,12 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             variableTable[argName] = vinfo;
         }
 
+        if(isBuiltin(c->name)) {
+            exec(c);
+        }
+
         for (AST* stmt : fn->body) {
-            if(isBuiltin(c->name))
-                exec(c);
-            else
-                Evalulate(stmt);
+            Evalulate(stmt);
         }
 
         for(std::string argName : fn->args) {
@@ -431,7 +464,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         return 0L;
     else if(auto a = dynamic_cast<AssignNode*>(node)) {
         if(isBuiltin(a->name)) {
-            lex.error(current(), "Builtin Funciton Cannot Be Overrided.");
+            lex.error(current(), "Builtin Funciton Cannot Be Overrided/Overwritten.");
             return nullptr;
         }
 
@@ -447,8 +480,59 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         }, val);
         vinfo.dtype = DATA_TYPE_STRING;
         vinfo.isConst = false;
-        variableTable.insert({a->name, vinfo});
+        if(variableTable.find(a->name) == variableTable.end())
+            variableTable.insert({a->name, vinfo});
+        else
+            variableTable[a->name] = vinfo;
+        
         return val;
+    }
+    else if(auto bl = dynamic_cast<BooleanNode*>(node)) {
+        std::variant<double, long, int, std::string> l = Evalulate(bl->left);
+        std::variant<double, long, int, std::string> r = Evalulate(bl->right);
+
+        if (
+            (std::holds_alternative<int>(l) || std::holds_alternative<double>(l) || std::holds_alternative<long>(l)) &&
+            (std::holds_alternative<int>(r) || std::holds_alternative<double>(r) || std::holds_alternative<long>(r))
+        )
+        {
+            switch(bl->op) {
+                case TOKEN_GREATER: return l > r ? "True" : "False";
+                case TOKEN_GREATER_EQUAL: return l >= r ? "True" : "False";
+                case TOKEN_SHORTER: return l < r ? "True" : "False";
+                case TOKEN_SHORTER_EQUAL: return l <= r ? "True" : "False";
+                case TOKEN_EQUAL: return l == r ? "True" : "False";
+                default:
+                    lex.error(current(), "Cannot Compare " + std::to_string(std::visit([](auto&& v) -> double {
+                        using T = std::decay_t<decltype(v)>;
+                        if constexpr (std::is_same_v<T, double>) return v;
+                        else if constexpr (std::is_same_v<T, long>) return static_cast<double>(v);
+                        else if constexpr (std::is_same_v<T, int>) return static_cast<double>(v);
+                        else return 0.0;
+                    }, l)) + " " + std::to_string(std::visit([](auto&& v) -> double {
+                        using T = std::decay_t<decltype(v)>;
+                        if constexpr (std::is_same_v<T, double>) return v;
+                        else if constexpr (std::is_same_v<T, long>) return static_cast<double>(v);
+                        else if constexpr (std::is_same_v<T, int>) return static_cast<double>(v);
+                        else return 0.0;
+                    }, r)));
+            }
+        }
+        else {
+            switch(bl->op) {
+                case TOKEN_EQUAL: return l == r ? "True" : "False";
+                default:
+                    lex.error(current(), "Cannot Compare " + std::visit([](auto&& v) -> std::string {
+                        using T = std::decay_t<decltype(v)>;
+                        if constexpr (std::is_same_v<T, std::string>) return v;
+                        else return std::to_string(v);
+                    }, l) + " " + std::visit([](auto&& v) -> std::string {
+                        using T = std::decay_t<decltype(v)>;
+                        if constexpr (std::is_same_v<T, std::string>) return v;
+                        else return std::to_string(v);
+                    }, r));
+            }
+        }
     }
     else {
         lex.error(tokens[idx], "Syntax Error.");

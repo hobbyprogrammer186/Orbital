@@ -83,9 +83,17 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 			continue;
 		}
 		else if (cur == '=') {
-			tkn.token = TOKEN_ASIGNMENT;
-			tkn.value = "=";
-			idx++;
+			if (idx + 1 < value.length() && value[idx + 1] == '=') {
+				tkn.token = TOKEN_EQUAL;
+				tkn.value = "==";
+				idx += 2;
+				col += 2;
+			} else {
+				tkn.token = TOKEN_ASIGNMENT;
+				tkn.value = "=";
+				idx++;
+				col++;
+			}
 			tkns.push_back(tkn);
 			continue;
 		}
