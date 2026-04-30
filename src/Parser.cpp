@@ -412,7 +412,6 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             variableTable[argName] = vinfo;
         }
 
-        exec(c);
         for (AST* stmt : fn->body) {
             if(isBuiltin(c->name))
                 exec(c);
