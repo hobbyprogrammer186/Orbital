@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Orbital",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/src/Orbital",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": true,
+      "externalConsole": false,
+      "MIMode": "gdb"
+    }
+  ]
+}

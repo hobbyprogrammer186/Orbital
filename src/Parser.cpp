@@ -1,0 +1,443 @@
+/*
+ * Parser  Copyright (C) 2026  First Person
+ * This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
+ * This is free software, and you are welcome to redistribute it
+ * under certain conditions; type `show c' for details.
+ */
+
+#include <iostream>
+#include <cmath>
+#include <stdexcept>
+#include <fstream>
+#include <filesystem>
+#include <cstdbool>
+#include <sstream>
+#include <utility>
+#include <variant>
+#include <map>
+#include <Parser.h>
+#include <Lexer.h>
+#include <orbtlio.h>
+
+std::map<std::string, VariableInfo> variableTable;
+std::map<std::string, FunctionNode*> functionTable;
+
+void Parser::Interpret() {
+    std::vector<AST*> nodes = parse();
+    for(AST* node : nodes) {
+        Evalulate(node);
+    }
+}
+
+TOKEN& Parser::current() {
+    return tokens[idx];
+}
+
+bool Parser::match(TOKEN_TYPE type) {
+    if(current().token == type) {
+        idx++;
+        return true;
+    }
+    return false;
+}
+
+void Parser::expect(TOKEN_TYPE type, std::optional<std::string> msg) {
+    if(match(type))
+        return;
+    
+    lex.error(current(), msg.value_or("Syntax Error."));
+}
+
+AST* Parser::factor() {
+    TOKEN& tkn = current();
+
+    if(match(TOKEN_NUMBER))
+        return new NumberNode(std::stod(tkn.value));
+    else if(match(TOKEN_STRING))
+        return new StringNode(tkn.value);
+    else if(match(TOKEN_LPAREN)) {
+        AST* node = expr();
+        expect(TOKEN_RPAREN, "Bracket Is Not Terminated.");
+        return node;
+    }
+    else if(match(TOKEN_IDENTIFIER)) {
+        if(functionTable.find(tkn.value) != functionTable.end() && idx + 1 < tokens.size() && tokens[idx + 1].token == TOKEN_LPAREN) {
+            while(current().value == tkn.value || current().value == "(")
+                idx++;
+            
+            std::vector<AST*> args;
+            while(current().token != TOKEN_RPAREN) {
+                args.push_back(expr());
+
+                if(current().token == TOKEN_COMMA)
+                    idx++;
+                else if(current().token != TOKEN_EOL && current().token != TOKEN_SEMICOLON) {
+                    expect(TOKEN_RPAREN, "Expected/Missing ',' Or ')'");
+                    return nullptr;
+                }
+            }
+            expect(TOKEN_RPAREN, "Bracket Is Not Terminated.");
+            if(!args.empty())
+                return new CallNode(tkn.value, args);
+            else
+                return new CallNode(tkn.value);
+        }
+        else if(functionTable.find(tkn.value) != functionTable.end() && idx + 1 < tokens.size()) {
+            while(current().value == tkn.value)
+                idx++;
+            
+            std::vector<AST*> args;
+            while(current().token != TOKEN_EOL) {
+                args.push_back(expr());
+
+                if(current().token == TOKEN_COMMA)
+                    idx++;
+                else if (current().token != TOKEN_EOL && current().token != TOKEN_SEMICOLON) {
+                    expect(TOKEN_RPAREN, "Expected/Missing ','");
+                    return nullptr;
+                }
+            }
+
+            if(!args.empty())
+                return new CallNode(tkn.value, args);
+            else
+                return new CallNode(tkn.value);
+        }
+        else
+            return new VariableNode(tkn.value);
+    }
+    else {
+        lex.error(current(), "Invalid Bracket.");
+        return nullptr;
+    }
+}
+
+AST* Parser::term() {
+    AST* node = factor();
+
+    while(current().token == TOKEN_MULTIPLY || current().token == TOKEN_DIVIDE) {
+        TOKEN_TYPE op = current().token;
+        idx++;
+        node = new BinOpNode(node, op, factor());
+    }
+
+    return node;
+}
+
+AST* Parser::expr() {
+    AST* node = term();
+    while(current().token == TOKEN_PLUS || current().token == TOKEN_MINUS) {
+        TOKEN_TYPE op = current().token;
+        idx++;
+        node = new BinOpNode(node, op, term());
+    }
+    return node;
+}
+
+AST* Parser::statement() {
+    if(current().token == TOKEN_IDENTIFIER) {
+        if(idx < tokens.size() - 1) {
+            TOKEN& next = tokens[idx + 1];
+            
+            if(next.token == TOKEN_ASIGNMENT && next.value == ":")
+                return parseFunction();
+            else if(next.token == TOKEN_LPAREN) {
+                size_t parenIdx = idx + 1;
+                while(parenIdx < tokens.size() && tokens[parenIdx].token != TOKEN_RPAREN) {
+                    parenIdx++;
+                }
+                if(parenIdx < tokens.size() - 1 && tokens[parenIdx + 1].token == TOKEN_ASIGNMENT && 
+                   tokens[parenIdx + 1].value == ":") {
+                    return parseFunction();
+                }
+            }
+            else if(next.token == TOKEN_ASIGNMENT) {
+                std::string name = current().value;
+                idx++;
+                match(TOKEN_ASIGNMENT);
+                
+                AST* value = expr();
+                return new AssignNode(name, value);
+            }
+        }
+    }
+    else return expr();
+    return expr();
+}
+
+AST* Parser::parseFunction() {
+    std::string name = current().value;
+    std::vector<std::string> args;
+    int functionIndent = current().col;
+    idx++;
+    
+    if(functionTable.find(name) != functionTable.end()) {
+        functionTable.erase(name);
+    }
+
+    if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
+        idx++;
+        
+        if(current().token == TOKEN_EOL)
+            idx++;
+        
+        std::vector<AST*> body;
+        while(idx < tokens.size() && current().token != TOKEN_EOF) {
+            if(current().token == TOKEN_EOL) {
+                idx++;
+                continue;
+            }
+            
+            if(current().token == TOKEN_IDENTIFIER && current().col <= functionIndent)
+                break;
+                
+            body.push_back(statement());
+            
+            if(current().token == TOKEN_EOL)
+                idx++;
+        }
+        
+        FunctionNode* fn = new FunctionNode(name, args, body);
+        functionTable.insert({name, fn});
+        return fn;
+    }
+    else if(current().token == TOKEN_LPAREN && current().value == "(") {    
+        idx++;
+        while(current().token != TOKEN_RPAREN) {
+            if(current().token != TOKEN_IDENTIFIER && current().token != TOKEN_NUMBER && current().token != TOKEN_COMMA) {
+                lex.error(current(), "Expected Argurement.");
+                return nullptr;
+            }
+
+            if(current().token == TOKEN_IDENTIFIER || current().token == TOKEN_NUMBER) {
+                args.push_back(current().value);
+                idx++;
+            }
+            
+            if(current().token == TOKEN_COMMA)
+                idx++;
+        }
+        
+        idx++;
+        if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
+            idx++;
+            
+            if(current().token == TOKEN_EOL)
+                idx++;
+            
+            std::vector<AST*> body;
+            while(idx < tokens.size() && current().token != TOKEN_EOF) {
+                if(current().token == TOKEN_EOL) {
+                    idx++;
+                    continue;
+                }
+                
+                if(current().token == TOKEN_IDENTIFIER && current().col <= functionIndent)
+                    break;
+                    
+                body.push_back(statement());
+                
+                if(current().token == TOKEN_EOL)
+                    idx++;
+            }
+            
+            FunctionNode* fn = new FunctionNode(name, args, body);
+            functionTable.insert({name, fn});
+            return fn;
+        }
+    }
+    
+    lex.error(current(), "Expected/Missing ':' After Function Declearation.");
+    return nullptr;
+}
+
+std::vector<AST*> Parser::parse() {
+    std::vector<AST*> nodes;
+    while(idx < tokens.size() && current().token != TOKEN_EOF) {
+        if(current().token == TOKEN_EOL || current().token == TOKEN_SEMICOLON) {
+            idx++;
+            continue;
+        }
+        
+        nodes.push_back(statement());
+        
+        if(current().token == TOKEN_EOL || current().token == TOKEN_SEMICOLON)
+            idx++;
+    }
+    return nodes;
+}
+
+std::vector<AST*> Parser::parseBlocks() {
+    std::string name = current().value;
+    std::vector<AST*> nodes;
+    idx++;
+
+    if(current().token == TOKEN_EOL)
+        idx++;
+
+    while(idx < tokens.size() && current().token != TOKEN_EOF) {
+        if(current().token == TOKEN_EOL) {
+            idx++;
+            continue;
+        }
+
+        // Stop When Top Level Statement Sart
+        if(current().token == TOKEN_IDENTIFIER && idx + 1 < tokens.size() && tokens[idx + 1].row != current().row)
+            break;
+
+        nodes.push_back(statement());
+
+        if(current().token == TOKEN_EOL || current().token == TOKEN_SEMICOLON)
+            idx++;
+    }
+    return nodes;
+}
+
+std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
+    if(auto n = dynamic_cast<NumberNode*>(node))
+        return n->value;
+    else if(auto s = dynamic_cast<StringNode*>(node))
+        return s->value;
+    else if(auto v = dynamic_cast<VariableNode*>(node)) {
+        if (variableTable.find(v->name) == variableTable.end()) {
+            lex.error(tokens[idx], "Undefined variable/function: " + v->name);
+            return 0L;
+        }
+        const std::string& val = variableTable[v->name].value;
+        
+        if (val.find('.') != std::string::npos) {
+            return std::stod(val);
+        }
+        
+        try {
+            return std::stol(val);
+        } catch(...) {
+            return val;
+        }
+    }
+    else if(auto b = dynamic_cast<BinOpNode*>(node)) {
+        std::variant<double, long, int, std::string> leftVal = Evalulate(b->left);
+        std::variant<double, long, int, std::string> rightVal = Evalulate(b->right);
+        
+        bool isString = std::holds_alternative<std::string>(leftVal) || std::holds_alternative<std::string>(rightVal);
+        
+        if(b->opr == TOKEN_PLUS && isString) {
+            std::string leftStr = std::visit([](auto&& v) -> std::string {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, std::string>) return v;
+                else return std::to_string(v);
+            }, leftVal);
+            std::string rightStr = std::visit([](auto&& v) -> std::string {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, std::string>) return v;
+                else return std::to_string(v);
+            }, rightVal);
+            return leftStr + rightStr;
+        }
+
+        auto getDouble = [](const auto& v) -> double {
+            return std::visit([](auto&& arg) -> double {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, double>) return arg;
+                else if constexpr (std::is_same_v<T, long>) return static_cast<double>(arg);
+                else if constexpr (std::is_same_v<T, int>) return static_cast<double>(arg);
+                else return 0.0;
+            }, v);
+        };
+
+        double left = getDouble(leftVal);
+        double right = getDouble(rightVal);
+
+        switch(b->opr) {
+            case TOKEN_PLUS:
+                return left + right;
+            case TOKEN_MINUS:
+                return left - right;
+            case TOKEN_MULTIPLY:
+                return left * right;
+            case TOKEN_DIVIDE:
+                if(left == 0 || right == 0) {
+                    lex.error(tokens[idx], "Cannot Divide By Zero");
+                    return 0.0;
+                }
+                else
+                    return left / right;
+        }
+    }
+    else if(auto c = dynamic_cast<CallNode*>(node)) {
+        if(functionTable.find(c->name) == functionTable.end()) {
+            lex.error(current(), "Undefined variable/function");
+            return 0L;
+        }
+
+        FunctionNode* fn = functionTable[c->name];
+        if(fn->args.size() > c->args.size()) {
+            lex.error(current(), std::to_string(fn->args.size() - c->args.size()) + " Parameter/Argurement Is Required But Missing.");
+            return 0L;
+        }
+        else if(fn->args.size() < c->args.size()) {
+            std::string totalArgs = std::to_string(fn->args.size() - c->args.size());
+            lex.error(current(), "Over " + totalArgs + " Parameter/Argurement Found But Not Defiend " + totalArgs + " Overload On The" + c->name + " Function.");
+            return 0L;
+        }
+
+        std::map<std::string, VariableInfo> backup;
+
+        for (size_t i = 0; i < fn->args.size(); i++) {
+            const std::string& argName = fn->args[i];
+
+            auto it = variableTable.find(argName);
+            if (it != variableTable.end())
+                backup[argName] = it->second;
+
+            std::variant<double, long, int, std::string> argValue = Evalulate(c->args[i]);
+
+            VariableInfo vinfo;
+            vinfo.value = std::visit([](auto&& v) -> std::string {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, std::string>) return v;
+                else return std::to_string(v);
+            }, argValue);
+            vinfo.dtype = DATA_TYPE_STRING;
+            vinfo.isConst = false;
+
+            variableTable[argName] = vinfo;
+        }
+
+        exec(c);
+        for (AST* stmt : fn->body) {
+            Evalulate(stmt);
+        }
+
+        for(std::string argName : fn->args) {
+            if(backup.find(argName) != backup.end()) {
+                variableTable[argName] = backup.find(argName)->second;
+            }
+        }
+
+        return 0L; // Proper Implement Return Function Later
+    }
+    else if(auto fn = dynamic_cast<FunctionNode*>(node))
+        return 0L;
+    else if(auto a = dynamic_cast<AssignNode*>(node)) {
+        if(functionTable.find(a->name) != functionTable.end())
+            functionTable.erase(a->name);
+
+        std::variant<double, long, int, std::string> val = Evalulate(a->value);
+        VariableInfo vinfo;
+        vinfo.value = std::visit([](auto&& v) -> std::string {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, std::string>) return v;
+            else return std::to_string(v);
+        }, val);
+        vinfo.dtype = DATA_TYPE_STRING;
+        vinfo.isConst = false;
+        variableTable.insert({a->name, vinfo});
+        return val;
+    }
+    else {
+        lex.error(tokens[idx], "Syntax Error.");
+        return 0L;
+    }
+    return 0L;
+}
