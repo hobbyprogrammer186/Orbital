@@ -55,6 +55,12 @@ AST* Parser::factor() {
         return new NumberNode(std::stod(tkn.value));
     else if(match(TOKEN_STRING))
         return new StringNode(tkn.value);
+    else if(match(TOKEN_TRUE))
+        return new StringNode("True");
+    else if(match(TOKEN_FALSE))
+        return new StringNode("False");
+    else if(match(TOKEN_NULL))
+        return new StringNode("None");
     else if(match(TOKEN_LPAREN)) {
         AST* node = expr();
         expect(TOKEN_RPAREN, "Bracket Is Not Terminated.");
@@ -88,15 +94,12 @@ AST* Parser::factor() {
                 idx++;
             
             std::vector<AST*> args;
-            while(current().token != TOKEN_EOL) {
+            while(current().token != TOKEN_EOL && current().token != TOKEN_EOF) {
                 args.push_back(comparison());
-
                 if(current().token == TOKEN_COMMA)
                     idx++;
-                else if (current().token != TOKEN_EOL && current().token != TOKEN_SEMICOLON) {
-                    expect(TOKEN_RPAREN, "Expected/Missing ','");
-                    return nullptr;
-                }
+                else
+                    break;
             }
 
             if(!args.empty())

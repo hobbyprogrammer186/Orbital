@@ -15,6 +15,7 @@ bool isInitialized = false;
 const std::map<std::string, std::unique_ptr<FunctionNode>> builtin = [] {
     std::map<std::string, std::unique_ptr<FunctionNode>> m;
     m["print"] = std::make_unique<FunctionNode>("print", std::vector<std::string>{"text"});
+	m["exit"] = std::make_unique<FunctionNode>("exit", std::vector<std::string>{"code"});
     return m;
 }();
 
@@ -37,5 +38,8 @@ void init() {
 void exec(CallNode* cn) {
 	if (cn->name == "print") {
 		std::cout << variableTable.find("text")->second.value << std::endl;
+	}
+	else if(cn->name == "exit") {
+		std::exit(std::stoi(variableTable.find("code")->second.value));
 	}
 }
