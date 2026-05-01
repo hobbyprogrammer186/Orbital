@@ -438,7 +438,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
                 if constexpr (std::is_same_v<T, std::string>) return v;
                 else return std::to_string(v);
             }, argValue);
-            vinfo.dtype = std::visit([](auto&& v) -> DATA_TYPE {
+            vinfo.dtype = std::visit([&](auto&& v) -> DATA_TYPE {
                 using T = std::decay_t<decltype(v)>;
                 if constexpr (std::is_same_v<T, std::string>) return DATA_TYPE_STRING;
                 else if constexpr (std::is_same_v<T, int>) return DATA_TYPE_INT;
@@ -486,7 +486,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             if constexpr (std::is_same_v<T, std::string>) return v;
             else return std::to_string(v);
         }, val);
-        vinfo.dtype = std::visit([](auto&& v) -> DATA_TYPE {
+        vinfo.dtype = std::visit([&](auto&& v) -> DATA_TYPE {
             using T = std::decay_t<decltype(v)>;
             if constexpr (std::is_same_v<T, std::string>) return DATA_TYPE_STRING;
             else if constexpr (std::is_same_v<T, int>) return DATA_TYPE_INT;
@@ -494,7 +494,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             else if constexpr (std::is_same_v<T, double>) return DATA_TYPE_DOUBLE;
             else if (vinfo.value == "True" || vinfo.value == "False") return DATA_TYPE_BOOLEAN;
             else return DATA_TYPE_STRING;
-        }, argValue);
+        }, val);
         vinfo.isConst = false;
 
         variableTable.insert({a->name, vinfo});
