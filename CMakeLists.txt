@@ -11,6 +11,9 @@ endif()
 
 project ("Orbital")
 
+# Include Dependencies
+find_package(Curses REQUIRED)
+
 # Include sub-projects.
 include_directories("include")
 add_subdirectory(docs)

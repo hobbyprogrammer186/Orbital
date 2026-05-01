@@ -7,14 +7,11 @@
 
 #include <iostream>
 #include <cstdbool>
-#include <map>
 #include <memory>
 #include <orbtlio.h>
 #include <Parser.h>
 
 bool isInitialized = false;
-extern std::map<std::string, VariableInfo> variableTable;
-extern std::map<std::string, FunctionNode*> functionTable;
 const std::map<std::string, std::unique_ptr<FunctionNode>> builtin = [] {
     std::map<std::string, std::unique_ptr<FunctionNode>> m;
     m["print"] = std::make_unique<FunctionNode>("print", std::vector<std::string>{"text"});

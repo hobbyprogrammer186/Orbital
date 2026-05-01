@@ -6,6 +6,7 @@
 
 target_link_libraries(orbital PRIVATE
     orbtlio
+    ${CURSES_LIBRARIES}
 )
 
 target_include_directories(orbital PRIVATE

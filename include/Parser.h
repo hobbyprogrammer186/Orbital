@@ -15,6 +15,7 @@
 #include <optional>
 #include <variant>
 #include <utility>
+#include <map>
 #include <Lexer.h>
 
 typedef enum {
@@ -91,6 +92,9 @@ struct BooleanNode : AST {
 
 	BooleanNode(AST* l, TOKEN_TYPE o, AST* r) : left(l), op(o), right(r) {}
 };
+
+extern std::map<std::string, VariableInfo> variableTable;
+extern std::map<std::string, FunctionNode*> functionTable;
 
 class Parser {
 private:
