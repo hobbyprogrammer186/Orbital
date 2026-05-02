@@ -17,6 +17,9 @@
 #include <map>
 #include <Lexer.h>
 
+extern std::map<std::string, VariableInfo> variableTable;
+extern std::map<std::string, FunctionNode*> functionTable;
+
 typedef enum {
 	DATA_TYPE_STRING,
 	DATA_TYPE_INT,
