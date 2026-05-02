@@ -1,0 +1,89 @@
+name: Orbital CI (CMake Multi-Platform)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}
+    # Changed windows-latest to windows-2019 to support VS 2017
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            c_compiler: gcc
+            cpp_compiler: g++
+            build_type: Release
+
+          - os: ubuntu-latest
+            compiler: clang
+            c_compiler: clang
+            cpp_compiler: clang++
+            build_type: Release
+
+          - os: windows-2019 # Required for Visual Studio 2017
+            compiler: msvc2017
+            c_compiler: cl
+            cpp_compiler: cl
+            build_type: Release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup build directory
+        id: paths
+        shell: bash
+        run: echo "build_dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      - name: Setup MSVC 2017 (v141)
+        if: matrix.os == 'windows-2019'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          toolset: 14.1 
+
+      - name: Install Required Dependencies
+        run: vcpkg install
+        
+      - name: Configure CMake
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+            cmake -S . -B "${{ steps.paths.outputs.build_dir }}" \
+                  -G "Visual Studio 15 2017" -A x64 \
+                  -T v141 \
+                  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          else
+            cmake -S . -B "${{ steps.paths.outputs.build_dir }}" \
+                  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+                  -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+                  -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+          fi
+
+      - name: Build
+        run: cmake --build "${{ steps.paths.outputs.build_dir }}" --config ${{ matrix.build_type }}
+
+      - name: Locate binary
+        id: binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-2019" ]; then
+            # Note: CMake puts binaries in a subfolder named after the config in multi-config generators
+            echo "binary_path=${{ steps.paths.outputs.build_dir }}/src/${{ matrix.build_type }}/orbital.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "binary_path=${{ steps.paths.outputs.build_dir }}/src/orbital" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbital-${{ matrix.os }}-${{ matrix.compiler }}
+          path: ${{ steps.binary.outputs.binary_path }}
