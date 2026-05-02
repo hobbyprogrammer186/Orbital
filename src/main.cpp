@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Orbital Shell  Copyright (C) 2026  First Person
  * This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
  * This is free software, and you are welcome to redistribute it
@@ -7,19 +7,18 @@
 
 #include <iostream>
 #include <string>
-#include <cstdbool>
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
 #include <Lexer.h>
 #include <Parser.h>
 #include <orbtlio.h>
-#include <ncurses.h>
-#include <unistd.h>
-
 #if defined(_WIN32) || defined(_WIN64)
+    #include <curses.h>
     #include <conio.h>
 #elif defined(__APPLE__) || defined(__MACH__) || defined(__linux__)
+    #include <ncurses.h>
+    #include <unistd.h>
     #include <termios.h>
 #endif
 
