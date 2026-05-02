@@ -17,8 +17,13 @@ endif()
 
 target_link_libraries(orbital PRIVATE
     orbtlio
-    ${CURSES_LIBRARIES}
 )
+
+if(WIN32)
+    target_link_libraries(orbital PRIVATE unofficial::pdcurses::pdcurses)
+else()
+    target_link_libraries(orbital PRIVATE ${CURSES_LIBRARIES})
+endif()
 
 target_include_directories(orbital PRIVATE
     ${CMAKE_SOURCE_DIR}/include
