@@ -4,6 +4,17 @@
     Parser.cpp
 )
 
+# Link Runtime As Statically
+if(MSVC)
+    set_property(TARGET orbital PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_options(orbital PRIVATE -static-libgcc -static-libstdc++)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_link_options(orbital PRIVATE -static-libgcc -static-libstdc++)
+endif()
+
 target_link_libraries(orbital PRIVATE
     orbtlio
     ${CURSES_LIBRARIES}
