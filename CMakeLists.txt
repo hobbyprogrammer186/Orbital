@@ -16,7 +16,15 @@ if(DEFINED ENV{VCPKG_ROOT})
 endif()
 
 # Include Dependencies
-find_package(Curses REQUIRED)
+if(WIN32)
+    # Use the target name vcpkg suggested
+    find_package(unofficial-pdcurses CONFIG REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::pdcurses::pdcurses)
+else()
+    find_package(Curses REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${CURSES_LIBRARIES})
+    include_directories(${CURSES_INCLUDE_DIRS})
+endif()
 
 # Include sub-projects.
 include_directories("include")
