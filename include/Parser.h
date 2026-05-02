@@ -17,9 +17,6 @@
 #include <map>
 #include <Lexer.h>
 
-struct AST;
-struct FunctionNode;
-
 typedef enum {
     DATA_TYPE_STRING,
     DATA_TYPE_INT,
