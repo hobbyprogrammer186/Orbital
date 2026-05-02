@@ -1,0 +1,7 @@
+{
+    "name": "orbital",
+    "version-string": "1.0.0-alpha",
+    "dependencies": [
+        "ncurses"
+    ]
+}
