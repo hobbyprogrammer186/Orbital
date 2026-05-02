@@ -195,12 +195,11 @@ AST* Parser::statement() {
             }
             else if(current().token == TOKEN_IF) {
                 AST* condition = statement();
-                std::
-                int functionIndent = current().col;
 
-                using T = std::decay_t<decltype(condition)>;
-                if constexpr (!std::is_same_v<T, BooleanNode>) {
-                    lex.error(tokens[idx - 1], "Variable Datatype Is Not Matching.");
+                int functionIndent = current().col;
+                BooleanNode* cond = dynamic_cast<BooleanNode*>(condition);
+                if (!cond) {
+                    lex.error(tokens[idx - 1], "Condition is not boolean.");
                     return nullptr;
                 }
 
@@ -541,12 +540,12 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
                     return 0L;
             }
             else {
-                lex.error(current(), "Datatype Is Not Boolean.");
+                lex.error(current(), "Condition is not boolean.");
                 return nullptr;
             }
         }
         else {
-            lex.error(current(), "Datatype Is Not Boolean.");
+            lex.error(current(), "Condition is not boolean.");
             return nullptr;
         }
     }
