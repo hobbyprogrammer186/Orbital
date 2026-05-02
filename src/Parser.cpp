@@ -221,9 +221,9 @@ AST* Parser::statement() {
 
                 // std::move can be expect in some cases if variable value is empty
                 if(!body.empty())
-                    return new IfNode(condition, body);
+                    return new IfNode(cond, body);
                 else
-                    return new IfNode(condition);
+                    return new IfNode(cond);
             }
         }
     }
@@ -235,6 +235,7 @@ AST* Parser::parseFunction() {
     std::string name = current().value;
     std::vector<std::string> args;
     int functionIndent = current().col;
+    FunctionNode* fn = nullptr;
     idx++;
 
     if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
@@ -265,7 +266,6 @@ AST* Parser::parseFunction() {
             if(current().token == TOKEN_EOL)
                 idx++;
         }
-        FunctionNode* fn;
         
         // std::move can be expect in some cases if variable value is empty
         if(!body.empty()) {
@@ -280,7 +280,7 @@ AST* Parser::parseFunction() {
             else
                 fn = new FunctionNode(name);
         }
-        functionTable.insert({name, fn});
+        functionTable[name] = fn;
         return fn;
     }
     else if(current().token == TOKEN_LPAREN && current().value == "(") {
@@ -340,7 +340,7 @@ AST* Parser::parseFunction() {
                 else
                     fn = new FunctionNode(name);
             }
-            functionTable.insert({name, fn});
+            functionTable[name] = fn;
             return fn;
         }
     }
@@ -527,11 +527,12 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         return 0L; // Proper Implement Return Function Later
     }
     else if(auto ifnd = dynamic_cast<IfNode*>(node)) {
-        std::variant<double, long, int, std::string> condition = Evalulate(ifnd.condition);
+        std::variant<double, long, int, std::string> condition = Evalulate(ifnd->condition);
         if(std::holds_alternative<std::string>(condition)) {
-            if(condition == "True" || condition == "False") {
-                if(condition == "True") {
-                    for(AST* stmt : fn->body)
+            std::string condStr = std::get<std::string>(condition);
+            if(condStr == "True" || condStr == "False") {
+                if(condStr == "True") {
+                    for(AST* stmt : ifnd->body)
                         Evalulate(stmt);
                     
                     return 0L;

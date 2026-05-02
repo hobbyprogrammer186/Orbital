@@ -31,6 +31,8 @@ struct VariableInfo {
     bool isConst;
 };
 
+struct FunctionNode;
+
 // Make Local Variable As Global
 extern std::map<std::string, VariableInfo> variableTable;
 extern std::map<std::string, FunctionNode*> functionTable;
