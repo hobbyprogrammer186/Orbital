@@ -22,7 +22,7 @@ jobs:
             build_type: Release
 
           - os: windows-latest
-            compiler: msvc2019
+            compiler: msvc-latest
             c_compiler: cl
             cpp_compiler: cl
             build_type: Release
@@ -36,25 +36,30 @@ jobs:
         shell: bash
         run: echo "build_dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-      # Setup for MSVC 2019 (v142)
-      - name: Setup MSVC 2019 (v142)
+      - name: Setup MSVC (Latest)
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          toolset: 14.2
 
       - name: Install Required Dependencies
-        run: vcpkg install
+        shell: bash
+        run: |
+          # Unset VCPKG_ROOT to avoid the path mismatch warning
+          unset VCPKG_ROOT
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+             vcpkg install
+          else
+             sudo apt-get update
+             sudo apt-get install -y libncurses5-dev libncursesw5-dev
+          fi
         
       - name: Configure CMake
         shell: bash
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            # VS 2019 is "Visual Studio 16 2019"
+            # Removing -G and -T allows CMake to autodetect VS 2022
             cmake -S . -B "${{ steps.paths.outputs.build_dir }}" \
-                  -G "Visual Studio 16 2019" -A x64 \
-                  -T v142 \
                   -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
                   -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
           else
