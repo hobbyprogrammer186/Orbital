@@ -9,6 +9,17 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
+# Link Runtime As Statically
+if(MSVC)
+    set_property(TARGET orbital PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_options(orbital PRIVATE -static-libgcc -static-libstdc++)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_link_options(orbital PRIVATE -static-libgcc -static-libstdc++)
+endif()
+
 project ("Orbital")
 
 

@@ -9,7 +9,6 @@
 #include <sstream>
 #include <vector>
 #include <string>
-#include <cstdbool>
 #include <stdexcept>
 #include <fstream>
 #include <filesystem>

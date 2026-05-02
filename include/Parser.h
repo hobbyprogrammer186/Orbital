@@ -10,7 +10,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <cstdbool>
 #include <cstdint>
 #include <optional>
 #include <variant>

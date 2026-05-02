@@ -6,7 +6,6 @@
  */
 
 #include <iostream>
-#include <cstdbool>
 #include <memory>
 #include <orbtlio.h>
 #include <Parser.h>
