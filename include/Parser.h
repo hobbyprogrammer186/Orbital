@@ -92,6 +92,14 @@ struct BooleanNode : AST {
 	BooleanNode(AST* l, TOKEN_TYPE o, AST* r) : left(l), op(o), right(r) {}
 };
 
+struct IfNode : AST {
+	BooleanNode* condition;
+	std::vector<AST*> body;
+
+	IfNode(BooleanNode* c) : condition(std::move(c)) {}
+	IfNode(BooleanNode* c, std::vector<AST*> b) : condition(std::move(c)), body(std::move(b)) {}
+}
+
 extern std::map<std::string, VariableInfo> variableTable;
 extern std::map<std::string, FunctionNode*> functionTable;
 

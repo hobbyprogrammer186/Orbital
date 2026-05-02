@@ -193,6 +193,39 @@ AST* Parser::statement() {
                 else
                     return new BooleanNode(left, op, right);
             }
+            else if(current().token == TOKEN_IF) {
+                AST* condition = statement();
+                std::
+                int functionIndent = current().col;
+
+                using T = std::decay_t<decltype(condition)>;
+                if constexpr (!std::is_same_v<T, BooleanNode>) {
+                    lex.error(tokens[idx - 1], "Variable Datatype Is Not Matching.");
+                    return nullptr;
+                }
+
+                std::vector<AST*> body;
+                while(idx < tokens.size() && current().token != TOKEN_EOF) {
+                    if(current().token == TOKEN_EOL) {
+                        idx++;
+                        continue;
+                    }
+
+                    if(current().token == TOKEN_IDENTIFIER && current().col <= functionIndent)
+                        break;
+                    
+                    body.push_back(statement());
+
+                    if(current().token == TOKEN_EOL)
+                        idx++;
+                }
+
+                // std::move can be expect in some cases if variable value is empty
+                if(!body.empty())
+                    return new IfNode(condition, body);
+                else
+                    return new IfNode(condition);
+            }
         }
     }
     else return expr();
@@ -204,15 +237,14 @@ AST* Parser::parseFunction() {
     std::vector<std::string> args;
     int functionIndent = current().col;
     idx++;
-    
-    if(functionTable.find(name) != functionTable.end()) {
-        functionTable.erase(name);
-    }
 
     if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
         if(isBuiltin(name)) {
             lex.error(current(), "Builtin Funciton Cannot Be Overrided/Overwritten.");
             return nullptr;
+        }
+        else if(functionTable.find(name) != functionTable.end()) {
+            functionTable.erase(name);
         }
         
         idx++;
@@ -234,8 +266,21 @@ AST* Parser::parseFunction() {
             if(current().token == TOKEN_EOL)
                 idx++;
         }
+        FunctionNode* fn;
         
-        FunctionNode* fn = new FunctionNode(name, args, body);
+        // std::move can be expect in some cases if variable value is empty
+        if(!body.empty()) {
+            if(!args.empty())
+                fn = new FunctionNode(name, args, body);
+            else
+                fn = new FunctionNode(name, body);
+        }
+        else {
+            if(!args.empty())
+                fn = new FunctionNode(name, args);
+            else
+                fn = new FunctionNode(name);
+        }
         functionTable.insert({name, fn});
         return fn;
     }
@@ -283,7 +328,19 @@ AST* Parser::parseFunction() {
                     idx++;
             }
             
-            FunctionNode* fn = new FunctionNode(name, args, body);
+            // std::move can be expect in some cases if variable value is empty
+            if(!body.empty()) {
+                if(!args.empty())
+                    fn = new FunctionNode(name, args, body);
+                else
+                    fn = new FunctionNode(name, body);
+            }
+            else {
+                if(!args.empty())
+                    fn = new FunctionNode(name, args);
+                else
+                    fn = new FunctionNode(name);
+            }
             functionTable.insert({name, fn});
             return fn;
         }
@@ -469,6 +526,29 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         }
 
         return 0L; // Proper Implement Return Function Later
+    }
+    else if(auto ifnd = dynamic_cast<IfNode*>(node)) {
+        std::variant<double, long, int, std::string> condition = Evalulate(ifnd.condition);
+        if(std::holds_alternative<std::string>(condition)) {
+            if(condition == "True" || condition == "False") {
+                if(condition == "True") {
+                    for(AST* stmt : fn->body)
+                        Evalulate(stmt);
+                    
+                    return 0L;
+                }
+                else
+                    return 0L;
+            }
+            else {
+                lex.error(current(), "Datatype Is Not Boolean.");
+                return nullptr;
+            }
+        }
+        else {
+            lex.error(current(), "Datatype Is Not Boolean.");
+            return nullptr;
+        }
     }
     else if(auto fn = dynamic_cast<FunctionNode*>(node))
         return 0L;

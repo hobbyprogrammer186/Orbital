@@ -11,8 +11,8 @@ Easier To Use Programming Language
 - Console With Inline Suggestion
 
 ## Incomplete Feature/Functionality
-- `if`, `else`, `elif`, `switch`, `class`, `case`, etc Statement. But `and`, `or`, `not`, `True`, `False`, `Greater`, `Shorter` Is Already Implemented
-- File Loading
+- `else`, `elif`, `switch`, `class`, `case`, etc Statement. But `and`, `or`, `not`, `True`, `False`, `Greater`, `Shorter`, etc. Is Already Implemented
+- File Interpreting
 
 # Contribute
 Build And Test The Source Code:
