@@ -13,5 +13,11 @@
       "version>=": "3.9",
       "platform": "windows"
     }
+  ],
+  "overrides": [
+    {
+      "name": "pdcurses",
+      "version": "3.9#7"
+    }
   ]
 }
