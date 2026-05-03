@@ -6,9 +6,10 @@
  */
 
 #pragma once
-
-struct CallNode;
+#include <Parser.h>
+#include <iostream>
+#include <variant>
 
 extern void init();
-extern void exec(CallNode* cn);
+extern std::variant<double, long, int, std::string> exec(CallNode* cn);
 extern bool isBuiltin(std::string function);

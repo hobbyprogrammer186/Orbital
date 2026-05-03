@@ -1,0 +1,3 @@
+fn = input "Enter First Number:"
+sn = input "Enter Second Number:"
+print fn + sn

@@ -11,8 +11,9 @@ Easier To Use Programming Language
 - Console With Inline Suggestion
 
 ## Incomplete Feature/Functionality
-- `else`, `elif`, `switch`, `class`, `case`, etc Statement. But `and`, `or`, `not`, `True`, `False`, `Greater`, `Shorter`, etc. Is Already Implemented
-- Multiple File Interpreting Into Single Script
+- `else`, `elif`, `switch`, `class`, `case`, keywords etc. are Not Implemented. Statement. But `and`, `or`, `not`, `True`, `False`, `Greater`, `Shorter`, etc. Is Already Implemented
+- Multiple File Interpreting Into Single Script is Not Implemented
+- `return` keyword is not implemented outside statement/function
 
 # Contribute
 Build And Test The Source Code:

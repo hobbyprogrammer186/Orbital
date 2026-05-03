@@ -120,6 +120,13 @@ struct IfNode : AST {
         : condition(c), body(std::move(b)) {}
 };
 
+struct ReturnNode : AST {
+    std::string value;
+
+    ReturnNode() {};
+    ReturnNode(std::string v) : value(v) {};
+};
+
 class Parser {
 private:
     std::vector<TOKEN> tokens;

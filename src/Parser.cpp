@@ -233,6 +233,12 @@ AST* Parser::statement() {
                 else
                     return new IfNode(cond);
             }
+            else if(current().token == TOKEN_RETURN) {
+                if(next.value == "")
+                    return new ReturnNode();
+                else
+                    return new ReturnNode(next.value);
+            }
         }
     }
     else if(current().token == TOKEN_IF) {
@@ -558,12 +564,13 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             variableTable[argName] = vinfo;
         }
 
-        if(isBuiltin(c->name)) {
-            exec(c);
-        }
-
+        if(isBuiltin(c->name))
+            return exec(c);
         for (AST* stmt : fn->body) {
-            Evalulate(stmt);
+            if(auto ret = dynamic_cast<ReturnNode*>(stmt))
+                return ret->value;
+            else
+                Evalulate(stmt);
         }
 
         for(std::string argName : fn->args) {
@@ -580,8 +587,11 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             std::string condStr = std::get<std::string>(condition);
             if(condStr == "True" || condStr == "False") {
                 if(condStr == "True") {
-                    for(AST* stmt : ifnd->body)
+                    for(AST* stmt : ifnd->body) {
+                        if(auto ret = dynamic_cast<ReturnNode*>(stmt))
+                            return ret->value;
                         Evalulate(stmt);
+                    }
                     
                     return 0L;
                 }

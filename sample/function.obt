@@ -1,0 +1,8 @@
+SayHelloWorld:
+    print "Hello World"
+
+SayHello(nickname):
+    print "Hello " + nickname
+
+SayHelloWorld
+SayHello "Earth"
