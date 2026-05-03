@@ -29,4 +29,7 @@ out/
 *.cbp
 *.sln
 *.suo
-out
+
+# Binary Files And Packages
+out/
+vcpkg_installed/
