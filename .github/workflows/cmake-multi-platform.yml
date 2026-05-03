@@ -48,6 +48,9 @@ jobs:
           # Unset VCPKG_ROOT to avoid the path mismatch warning
           unset VCPKG_ROOT
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
+             # Update vcpkg to get the latest baseline commit
+             cd "$VCPKG_INSTALLATION_ROOT" && git pull
+             cd "$GITHUB_WORKSPACE"
              vcpkg install
           else
              sudo apt-get update
