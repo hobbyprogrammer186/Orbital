@@ -14,6 +14,11 @@
 #include <Lexer.h>
 #include <Parser.h>
 #include <orbtlio.h>
+#include <chrono>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
 #if defined(_WIN32) || defined(_WIN64)
     #include <curses.h>
     #include <conio.h>
@@ -23,8 +28,7 @@
     #include <termios.h>
 #endif
 
-extern std::map<std::string, VariableInfo> variableTable;
-extern std::map<std::string, FunctionNode*> functionTable;
+
 
 static const std::vector<std::string> KEYWORDS = {
     "import", "use", "class", "is", "in", "and", "or", "not",
@@ -279,23 +283,52 @@ std::string input() {
     }
 }
 
-int main() {
-    initscr();
-    cbreak();
-    noecho();
-    keypad(stdscr, TRUE);
-    if (has_colors()) {
-        start_color();
-        init_pair(4, COLOR_CYAN, COLOR_BLACK);
-        init_pair(8, COLOR_BLACK, COLOR_BLACK);
-    }
-    printw("Orbital Programming Language v1.0.0-alpha\n\n");
-    refresh();
-    init();
+int main(int argc, char **argv) {
+    if(argc >= 2) {
+        if(!fs::exists(argv[1])) {
+            std::cout << "File Is Not Exist" << std::endl;
+            exit(1);
+        }
+        
+        std::ifstream file(argv[1]);
+        if(!file.is_open()) {
+            std::cout << "Access Is Deniend." << std::endl;
+            exit(1);
+        }
 
-    while(1) {
-        Parser parser(input());
+        std::string line;
+        std::string buffer;
+        while (std::getline(file, line))
+            buffer += line + "\n";
+
+        Parser parser(buffer);
+        init();
         parser.Interpret();
     }
-    endwin();
+    else {
+        auto now = std::chrono::system_clock::now();
+        auto nyear = std::chrono::year_month_day(std::chrono::floor<std::chrono::days>(now)).year();
+        int yearInt = static_cast<int>(nyear);
+        std::string copyrightYear = yearInt > 2026 ? std::to_string(yearInt) : "2026";
+
+        initscr();
+        cbreak();
+        noecho();
+        keypad(stdscr, TRUE);
+        if (has_colors()) {
+            start_color();
+            init_pair(4, COLOR_CYAN, COLOR_BLACK);
+            init_pair(8, COLOR_BLACK, COLOR_BLACK);
+        }
+        printw((std::string(NAME_STRING) + " Programming Language " + VERSION_STRING + "\n").c_str());
+        printw(("Copyright (c) " + copyrightYear + " First Person\n\n").c_str());
+        refresh();
+        init();
+
+        while(1) {
+            Parser parser(input());
+            parser.Interpret();
+        }
+        std::atexit([](){ endwin(); }); // Register Exit To Destory The Canvas
+    }
 }

@@ -1,0 +1,14 @@
+x = 5
+y = 10
+
+if x <= 5:
+    print "x <= 5 works"
+
+if y >= 11:
+    print "y >= 11 works"
+
+if x > 3:
+    print "x > 3 works"
+
+if y == 10:
+    print "y >= 10 works"

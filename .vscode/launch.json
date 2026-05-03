@@ -5,8 +5,10 @@
       "name": "Debug Orbital",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/src/Orbital",
-      "args": [],
+      "program": "${workspaceFolder}/build/src/orbital",
+      "args": [
+        "${workspaceFolder}/sample/if_else.obt"
+      ],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
       "externalConsole": false,

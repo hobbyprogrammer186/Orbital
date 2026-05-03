@@ -21,7 +21,8 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 project ("Orbital")
-
+set(VERSION_STRING "1.0.0-alpha")
+string(TOLOWER ${PROJECT_NAME} EXECUTEABLE_NAME)
 
 if(DEFINED ENV{VCPKG_ROOT})
     set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
@@ -34,6 +35,10 @@ else()
     find_package(Curses REQUIRED)
     include_directories(${CURSES_INCLUDE_DIRS})
 endif()
+
+# Add Compile Definations
+add_compile_definitions(VERSION_STRING="${VERSION_STRING}")
+add_compile_definitions(NAME_STRING="${PROJECT_NAME}")
 
 # Include sub-projects.
 include_directories("include")

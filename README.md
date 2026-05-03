@@ -12,7 +12,7 @@ Easier To Use Programming Language
 
 ## Incomplete Feature/Functionality
 - `else`, `elif`, `switch`, `class`, `case`, etc Statement. But `and`, `or`, `not`, `True`, `False`, `Greater`, `Shorter`, etc. Is Already Implemented
-- File Interpreting
+- Multiple File Interpreting Into Single Script
 
 # Contribute
 Build And Test The Source Code:
