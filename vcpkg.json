@@ -1,13 +1,16 @@
 {
   "name": "orbital",
   "version-string": "1.0.0-alpha",
+  "builtin-baseline": "522253caf47268c1724f486a035e927a42a90092",
   "dependencies": [
     {
       "name": "ncurses",
+      "version>=": "6.5",
       "platform": "!windows"
     },
     {
       "name": "pdcurses",
+      "version>=": "3.9",
       "platform": "windows"
     }
   ]

@@ -10,6 +10,7 @@
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
+#include <map>
 #include <Lexer.h>
 #include <Parser.h>
 #include <orbtlio.h>
@@ -67,8 +68,103 @@ static std::string find_suggestion(const std::string& buffer) {
     return "";
 }
 
+static const int MAX_VISIBLE_SUGGESTIONS = 8;
+
+static void clear_line();
+
+static std::vector<std::string> get_matching_suggestions(const std::string& prefix) {
+    std::vector<std::string> matches;
+    if (prefix.empty()) return matches;
+
+    std::vector<std::string> all = get_all_suggestions();
+    for (const auto& kw : all) {
+        if (kw.size() > prefix.size() &&
+            kw.substr(0, prefix.size()) == prefix) {
+            matches.push_back(kw);
+        }
+    }
+    return matches;
+}
+
+static void render_suggestion_box(const std::string& prompt, const std::string& buffer,
+                                   const std::vector<std::string>& suggestions, int selected_idx) {
+    clear_line();
+    printw("%s%s\n", prompt.c_str(), buffer.c_str());
+
+    if (suggestions.empty()) {
+        refresh();
+        return;
+    }
+
+    int start = 0;
+    int end = (int)suggestions.size();
+    if (end > MAX_VISIBLE_SUGGESTIONS) {
+        if (selected_idx < MAX_VISIBLE_SUGGESTIONS / 2) {
+            end = MAX_VISIBLE_SUGGESTIONS;
+        } else if (selected_idx >= end - MAX_VISIBLE_SUGGESTIONS / 2) {
+            start = end - MAX_VISIBLE_SUGGESTIONS;
+        } else {
+            start = selected_idx - MAX_VISIBLE_SUGGESTIONS / 2;
+            end = start + MAX_VISIBLE_SUGGESTIONS;
+        }
+    }
+
+    attron(COLOR_PAIR(8));
+    addstr("+--------------------------------------+\n");
+    attroff(COLOR_PAIR(8));
+
+    for (int i = start; i < end; i++) {
+        attron(COLOR_PAIR(8));
+        addstr("| ");
+        attroff(COLOR_PAIR(8));
+
+        if (i == selected_idx) {
+            attron(A_REVERSE);
+            printw(" %-36s", suggestions[i].c_str());
+            attroff(A_REVERSE);
+        } else {
+            printw("  %-36s", suggestions[i].c_str());
+        }
+
+        attron(COLOR_PAIR(8));
+        addstr("|\n");
+        attroff(COLOR_PAIR(8));
+    }
+
+    if ((int)suggestions.size() > MAX_VISIBLE_SUGGESTIONS) {
+        std::string scroll_info = std::to_string(start + 1) + "-" + std::to_string(end) + "/" + std::to_string((int)suggestions.size());
+        attron(COLOR_PAIR(8));
+        attron(COLOR_PAIR(4));
+        printw("  %-36s|\n", scroll_info.c_str());
+        attroff(COLOR_PAIR(4));
+        attroff(COLOR_PAIR(8));
+    }
+
+    attron(COLOR_PAIR(8));
+    addstr("+--------------------------------------+\n");
+    addstr("[Tab] accept  [UP/DOWN] navigate  [Esc] dismiss\n");
+    attroff(COLOR_PAIR(8));
+
+    int rows = (end - start) + 6;
+    while (rows-- > 0) move(getcury(stdscr) - 1, 0);
+    refresh();
+    printw("%s%s", prompt.c_str(), buffer.c_str());
+    refresh();
+}
+
 static void clear_line() {
-    std::cout << "\r\033[K" << std::flush;
+    move(getcury(stdscr), 0);
+    clrtoeol();
+    refresh();
+}
+
+static void clear_suggestion_display() {
+    int max_lines = 12;
+    while (max_lines-- > 0) {
+        move(getcury(stdscr) - 1, 0);
+        clrtoeol();
+    }
+    refresh();
 }
 
 #if defined(__APPLE__) || defined(__MACH__) || defined(__linux__)
@@ -91,48 +187,115 @@ char get_char() {
 
 std::string input() {
     std::string buffer;
-    while(1) {
-        std::string suggestion = find_suggestion(buffer);
-        clear_line();
-        std::cout << ">> " << buffer;
-        if (!suggestion.empty()) {
-            std::cout << "\033[90m> " << suggestion << "\033[0m";
+    std::string current_word;
+    std::vector<std::string> suggestions;
+    int selected_idx = -1;
+    bool showing_suggestions = false;
+    std::string prompt = ">> ";
+
+    auto extract_current_word = [&]() {
+        std::string word;
+        for (int i = (int)buffer.size() - 1; i >= 0; i--) {
+            char c = buffer[i];
+            if (c == ' ' || c == '\t') break;
+            word = c + word;
         }
-        std::cout << "\r" << std::string(3 + (int)buffer.size(), ' ') << "\r>> " << buffer << std::flush;
+        return word;
+    };
 
-#if defined(_WIN32) || defined(_WIN64)
-        char c = _getch();
-#elif defined(__APPLE__) || defined(__MACH__) || defined(__linux__)
-        char c = get_char();
-#endif
-
-        if (c == '\n' || c == '\r' || c == 10) {
+    auto refresh_display = [&]() {
+        current_word = extract_current_word();
+        suggestions = get_matching_suggestions(current_word);
+        if (!suggestions.empty() && !current_word.empty()) {
+            showing_suggestions = true;
+            if (selected_idx < 0) selected_idx = 0;
+            if (selected_idx >= (int)suggestions.size()) selected_idx = (int)suggestions.size() - 1;
+            render_suggestion_box(prompt, buffer, suggestions, selected_idx);
+        } else {
+            if (showing_suggestions) {
+                clear_suggestion_display();
+                showing_suggestions = false;
+            }
             clear_line();
-            std::cout << ">> " << buffer << std::endl;
-            return buffer;
+            printw("%s%s", prompt.c_str(), buffer.c_str());
+            refresh();
+            selected_idx = -1;
         }
-        else if (c == 127 || c == 8) {
-            if (!buffer.empty()) {
-                buffer.pop_back();
+    };
+
+    refresh_display();
+
+    while(1) {
+        int c = getch();
+
+        if (c == KEY_UP && showing_suggestions) {
+            selected_idx--;
+            if (selected_idx < 0) selected_idx = (int)suggestions.size() - 1;
+            render_suggestion_box(prompt, buffer, suggestions, selected_idx);
+            continue;
+        }
+        else if (c == KEY_DOWN && showing_suggestions) {
+            selected_idx++;
+            if (selected_idx >= (int)suggestions.size()) selected_idx = 0;
+            render_suggestion_box(prompt, buffer, suggestions, selected_idx);
+            continue;
+        }
+        else if (c == 27) {
+            if (showing_suggestions) {
+                clear_suggestion_display();
+                showing_suggestions = false;
+                selected_idx = -1;
+                clear_line();
+                printw("%s%s", prompt.c_str(), buffer.c_str());
+                refresh();
             }
         }
-        else if (c == '\t') {
-            if (!suggestion.empty()) {
-                buffer += suggestion;
+        else if (c == '\n' || c == '\r' || c == KEY_ENTER) {
+            if (showing_suggestions) {
+                clear_suggestion_display();
+            }
+            clear_line();
+            printw("%s%s\n", prompt.c_str(), buffer.c_str());
+            refresh();
+            return buffer;
+        }
+        else if (c == KEY_BACKSPACE || c == 127 || c == 8) {
+            if (!buffer.empty()) {
+                buffer.pop_back();
+                refresh_display();
+            }
+        }
+        else if (c == '\t' || c == KEY_BTAB) {
+            if (showing_suggestions && selected_idx >= 0 && selected_idx < (int)suggestions.size()) {
+                buffer = buffer.substr(0, buffer.size() - current_word.size());
+                buffer += suggestions[selected_idx];
+                refresh_display();
             }
         }
         else if (c >= 32 && c <= 126) {
             buffer += c;
+            refresh_display();
         }
     }
 }
 
 int main() {
-    std::cout << "Orbital Programming Language v1.0.0-alpha" << std::endl << std::endl;
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    if (has_colors()) {
+        start_color();
+        init_pair(4, COLOR_CYAN, COLOR_BLACK);
+        init_pair(8, COLOR_BLACK, COLOR_BLACK);
+    }
+    printw("Orbital Programming Language v1.0.0-alpha\n\n");
+    refresh();
     init();
 
     while(1) {
         Parser parser(input());
         parser.Interpret();
     }
+    endwin();
 }
