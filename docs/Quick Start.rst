@@ -65,3 +65,22 @@ Notes
 
 - Blocks are started using ``:`` (colon).
 - There is no need for explicit block termination in functions or control statements.
+
+File Read/Write
+---------------
+
+Read File Example:
+.. code-block:: orbital
+    filename = foo.txt # Replace The Example File Path With Existing File Path To View Content
+    contents = read filename;
+    print contents
+
+Write File Example:
+.. code-block:: orbital
+    filename = foo.txt # Replace The Example File Path With File Path To Write.
+    contents = input "Enter The File Contents:"
+    write filename, contents
+
+Notes
+-----
+- Write Function Can Be Overwrite The file when called in orbital interpreter. Please Be Careful.

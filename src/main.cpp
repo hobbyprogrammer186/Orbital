@@ -18,7 +18,6 @@
 #include <filesystem>
 
 namespace fs = std::filesystem;
-
 #if defined(_WIN32) || defined(_WIN64)
     #include <curses.h>
     #include <conio.h>
@@ -284,6 +283,8 @@ std::string input() {
 }
 
 int main(int argc, char **argv) {
+    init();
+
     if(argc >= 2) {
         if(!fs::exists(argv[1])) {
             std::cout << "File Is Not Exist" << std::endl;
@@ -302,8 +303,8 @@ int main(int argc, char **argv) {
             buffer += line + "\n";
 
         Parser parser(buffer);
-        init();
         parser.Interpret();
+        file.close();
     }
     else {
         auto now = std::chrono::system_clock::now();
@@ -323,7 +324,6 @@ int main(int argc, char **argv) {
         printw((std::string(NAME_STRING) + " Programming Language " + VERSION_STRING + "\n").c_str());
         printw(("Copyright (c) " + copyrightYear + " First Person\n\n").c_str());
         refresh();
-        init();
 
         while(1) {
             Parser parser(input());

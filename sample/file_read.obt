@@ -1,0 +1,3 @@
+filename = input "Enter The Filename To View Contents:"
+contents = read filename;
+print contents

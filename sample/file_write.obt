@@ -1,0 +1,3 @@
+filename = input "Enter The Filename To Write Contents:"
+contents = input "Enter The File Contents:"
+write filename, contents

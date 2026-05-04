@@ -192,9 +192,22 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 			tkns.push_back(tkn);
 			continue;
 		}
+		else if (cur == ',') {
+			tkn.token = TOKEN_COMMA;
+			tkn.value = ",";
+			idx++;
+			tkns.push_back(tkn);
+			continue;
+		}
 		else if (cur == ' ' || cur == '\t' || cur == '\r') {
 			idx++;
 			col++;
+			continue;
+		}
+		else if (cur == '#') {
+			while(value[idx] != '\n')
+				idx++; // Ignore All Contents While Not End The Line
+			
 			continue;
 		}
 		else {

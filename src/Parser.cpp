@@ -71,8 +71,6 @@ AST* Parser::factor() {
             
             std::vector<AST*> args;
             while(current().token != TOKEN_RPAREN) {
-                args.push_back(comparison());
-
                 if(current().token == TOKEN_RPAREN)
                     break;
                 if(current().token == TOKEN_COMMA)
@@ -81,6 +79,8 @@ AST* Parser::factor() {
                     expect(TOKEN_RPAREN, "Expected/Missing ',' Or ')'");
                     return nullptr;
                 }
+                else
+                    args.push_back(comparison());
             }
             expect(TOKEN_RPAREN, "Bracket Is Not Terminated.");
             if(!args.empty())
@@ -457,12 +457,20 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         }
         const std::string& val = variableTable[v->name].value;
         
-        if (val.find('.') != std::string::npos) {
-            return std::stod(val);
-        }
+        try {
+            size_t pos = 0;
+            double d = std::stod(val, &pos);
+            if (pos == val.size()) {
+                return d;
+            }
+        } catch(...) {}
         
         try {
-            return std::stol(val);
+            size_t pos = 0;
+            long l = std::stol(val, &pos);
+            if (pos == val.size()) {
+                return l;
+            }
         } catch(...) {
             return val;
         }
@@ -564,8 +572,15 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             variableTable[argName] = vinfo;
         }
 
-        if(isBuiltin(c->name))
-            return exec(c);
+        if(isBuiltin(c->name)) {
+            try {
+                return exec(c);
+            }
+            catch(const std::exception& e) {
+                lex.error(current(), e.what());
+                std::exit(1);
+            }
+        }
         for (AST* stmt : fn->body) {
             if(auto ret = dynamic_cast<ReturnNode*>(stmt))
                 return ret->value;
