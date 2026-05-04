@@ -218,10 +218,13 @@ AST* Parser::statement() {
                         idx++;
                         continue;
                     }
-
+					/*
+					Chnaged this to the below one:
                     if(current().token == TOKEN_IDENTIFIER && current().col < functionIndent)
                         break;
-                    
+                    */
+                    if (current().col < functionIndent)
+                        break;
                     body.push_back(statement());
 
                     if(current().token == TOKEN_EOL)
@@ -266,9 +269,12 @@ AST* Parser::statement() {
                 idx++;
                 continue;
             }
-
+			/* Changed this to the below one:
             if(current().token == TOKEN_IDENTIFIER && current().col < functionIndent)
                 break;
+            */    
+            if (current().col < functionIndent)
+            	break;
             
             body.push_back(statement());
 
