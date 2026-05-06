@@ -144,4 +144,5 @@ public:
 	std::string buffer;
 	std::vector<TOKEN> Tokenize(std::string input, std::string filename);
 	void error(TOKEN tkn, std::string msg);
+    void warn(TOKEN tkn, std::string msg);
 };

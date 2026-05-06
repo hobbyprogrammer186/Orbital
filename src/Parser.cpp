@@ -75,12 +75,12 @@ AST* Parser::factor() {
                 if(current().token == TOKEN_RPAREN)
                     break;
 
-                if(functionTable.find(current().value) != functionTable.end) {
+                if(functionTable.find(current().value) != functionTable.end()) {
                     std::string functionName = current().value;
                     std::vector<AST*> fargs;
                     idx++;
-                    for(std::string arg : functionTable.find(functionName)->second.args) {
-                        if(current().TOKEN == TOKEN_SEMICOLON)
+                    for(std::string arg : functionTable.find(functionName)->second->args) {
+                        if(current().token == TOKEN_SEMICOLON)
                             break;
                         
                         if(current().token == TOKEN_COMMA)
@@ -92,7 +92,17 @@ AST* Parser::factor() {
                         else
                             fargs.push_back(factor());
                     }
-                    args.push_back(new StringNode(Evalulate(new CallNode(functionName, fargs))));
+                    auto val = Evalulate(new CallNode(functionName, fargs));
+                    std::string str_val;
+                    std::visit([&str_val](auto&& arg) {
+                        using T = std::decay_t<decltype(arg)>;
+                        if constexpr (std::is_same_v<T, std::string>) {
+                            str_val = arg;
+                        } else {
+                            str_val = std::to_string(arg);
+                        }
+                    }, val);
+                    args.push_back(new StringNode(str_val));
                 }
                 
                 if(current().token == TOKEN_COMMA || TOKEN_SEMICOLON)
@@ -118,12 +128,12 @@ AST* Parser::factor() {
             while(current().token != TOKEN_EOL && current().token != TOKEN_EOF) {
                 args.push_back(comparison());
 
-                if(functionTable.find(current().value) != functionTable.end) {
+                if(functionTable.find(current().value) != functionTable.end()) {
                     std::string functionName = current().value;
                     std::vector<AST*> fargs;
                     idx++;
-                    for(std::string arg : functionTable.find(functionName)->second.args) {
-                        if(current().TOKEN == TOKEN_SEMICOLON)
+                    for(std::string arg : functionTable.find(functionName)->second->args) {
+                        if(current().token == TOKEN_SEMICOLON)
                             break;
                         
                         if(current().token == TOKEN_COMMA)
@@ -135,7 +145,17 @@ AST* Parser::factor() {
                         else
                             fargs.push_back(factor());
                     }
-                    args.push_back(new StringNode(Evalulate(new CallNode(functionName, fargs))));
+                    auto val = Evalulate(new CallNode(functionName, fargs));
+                    std::string str_val;
+                    std::visit([&str_val](auto&& arg) {
+                        using T = std::decay_t<decltype(arg)>;
+                        if constexpr (std::is_same_v<T, std::string>) {
+                            str_val = arg;
+                        } else {
+                            str_val = std::to_string(arg);
+                        }
+                    }, val);
+                    args.push_back(new StringNode(str_val));
                 }
 
                 if(current().token == TOKEN_COMMA)
@@ -751,7 +771,7 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         }
     }
     else if (auto ld = dynamic_cast<ImportNode*>(node)) {
-        Lexer.warn(tokens[idx], "Import Is Not Implented.")
+        lex.warn(tokens[idx], "Import Is Not Implented.");
         for(std::string path : ld->files) {
             // I Will Be Implement
         }
