@@ -72,7 +72,7 @@ File Read/Write
 Read File Example:
 .. code-block:: orbital
     filename = foo.txt # Replace The Example File Path With Existing File Path To View Content
-    contents = read filename;
+    contents = read filename
     print contents
 
 Write File Example:
