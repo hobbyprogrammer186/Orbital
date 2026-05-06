@@ -29,9 +29,9 @@ mkdir build && cd build
 cmake ..
 make docs
 ```
-And Docs Is Located At `build/docs/`
+And Compiled Rich Docs Is Located At `build/docs/`
 
 - `io/orbtlio.cpp`: Predefiend Standard Functions.
 - `include/`: Header Files Of This Interpreter
-- `docs/`: Documentions Of This Programming Language (How To Use?)
+- `docs/`: Source Code Of Rich Docs (.rst) Of This Programming Language (How To Use?)
 - `src/`: Main Program And Perser/Lexer Is Located.

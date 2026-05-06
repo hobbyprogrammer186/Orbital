@@ -17,6 +17,7 @@ endif()
 
 target_link_libraries(${EXECUTEABLE_NAME} PRIVATE
     orbtlio
+#    DL_LIBRARY
 )
 
 if(WIN32)

@@ -19,7 +19,16 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_link_options(orbital PRIVATE -static-libgcc -static-libstdc++)
 endif()
-
+#[[
+if(WIN32)
+    # Use dlfcn-win32 to provide dlopen/dlsym on Windows
+    find_package(dlfcn-win32 REQUIRED)
+    set(DL_LIBRARY dlfcn-win32::dl)
+else()
+    # Use standard POSIX dlfcn
+    set(DL_LIBRARY ${CMAKE_DL_LIBS})
+endif()
+]]
 project ("Orbital")
 set(VERSION_STRING "1.0.0-alpha")
 string(TOLOWER ${PROJECT_NAME} EXECUTEABLE_NAME)

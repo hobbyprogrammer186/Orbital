@@ -51,8 +51,6 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 			}
 			tkn.token = TOKEN_NUMBER;
 			tkn.value = num;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if ((cur >= 'a' && cur <= 'z') || (cur >= 'A' && cur <= 'Z') || cur == '_') {
 			std::string word;
@@ -67,8 +65,6 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 				tkn.token = TOKEN_IDENTIFIER;
 
 			tkn.value = word;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '"') {
 			std::string str;
@@ -79,8 +75,6 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 			idx++;
 			tkn.token = TOKEN_STRING;
 			tkn.value = str;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '=') {
 			if (idx + 1 < value.length() && value[idx + 1] == '=') {
@@ -94,8 +88,6 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 				idx++;
 				col++;
 			}
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '>') {
 			if (idx + 1 < value.length() && value[idx + 1] == '=') {
@@ -109,8 +101,6 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 				idx++;
 				col++;
 			}
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '<') {
 			if (idx + 1 < value.length() && value[idx + 1] == '=') {
@@ -124,64 +114,46 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 				idx++;
 				col++;
 			}
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '+') {
 			tkn.token = TOKEN_PLUS;
 			tkn.value = "+";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '-') {
 			tkn.token = TOKEN_MINUS;
 			tkn.value = "-";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '*') {
 			tkn.token = TOKEN_MULTIPLY;
 			tkn.value = "*";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '/') {
 			tkn.token = TOKEN_DIVIDE;
 			tkn.value = "/";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '(') {
 			tkn.token = TOKEN_LPAREN;
 			tkn.value = "(";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == ')') {
 			tkn.token = TOKEN_RPAREN;
 			tkn.value = ")";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == ';') {
 			tkn.token = TOKEN_SEMICOLON;
 			tkn.value = ";";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == ':') {
 			tkn.token = TOKEN_ASIGNMENT;
 			tkn.value = ":";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == '\n') {
 			tkn.token = TOKEN_EOL;
@@ -189,15 +161,11 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 			idx++;
 			row++;
 			col = 1;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == ',') {
 			tkn.token = TOKEN_COMMA;
 			tkn.value = ",";
 			idx++;
-			tkns.push_back(tkn);
-			continue;
 		}
 		else if (cur == ' ' || cur == '\t' || cur == '\r') {
 			idx++;
@@ -210,10 +178,15 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 			
 			continue;
 		}
+		else if (cur == '.') {
+			tkn.token = TOKEN_FULL_STOP;
+			tkn.value = ".";
+		}
 		else {
 			idx++;
 			continue;
 		}
+		tkns.push_back(tkn);
 	}
 
 	TOKEN eof;
@@ -264,4 +237,34 @@ void Lexer::error(TOKEN tkn, std::string msg) {
     std::cout << msg << "\n";
 
     exit(1);
+}
+
+void Lexer::warn(TOKEN tkn, std::string msg) {
+    // Print location header
+    if (!fname.empty())
+        std::cout << fname << ":" << tkn.row << ":" << tkn.col << "\n";
+    else
+        std::cout << tkn.row << ":" << tkn.col << "\n";
+
+    int start = std::max(1, tkn.row - PREVIOUS_LINE_BUFFER);
+
+    // Margin Problem Is Here (Overmargin)
+    for (int i = start; i <= tkn.row; i++) {
+        std::string line = getLine(buffer, i);
+        if (!line.empty()) {
+            std::cout << i << " | " << line << "\n";
+        }
+    }
+	
+	// Margin Problem Is Here (Undermargin)
+    for (int i = 1; i < tkn.col; i++) {
+        std::cout << " ";
+    }
+
+    std::cout << "^\n";
+    for (int i = 1; i < tkn.col; i++) {
+        std::cout << " ";
+    }
+	std::cout << "Warning: ";
+    std::cout << msg << "\n";
 }

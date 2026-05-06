@@ -127,6 +127,12 @@ struct ReturnNode : AST {
     ReturnNode(std::string v) : value(v) {};
 };
 
+struct ImportNode : AST {
+    std::vector<std::string> files;
+    
+    ImportNode(std::vector<std::string> fi) : files(fi) {}
+};
+
 class Parser {
 private:
     std::vector<TOKEN> tokens;

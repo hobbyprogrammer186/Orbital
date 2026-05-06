@@ -14,8 +14,8 @@ Printing "Hello World"
     print "Hello World"
 
 
-Getting Two Numbers from Users and Printing Their Sum
-----------------------------------------------------
+Getting Two Numbers from Users and Outputting Sum
+-------------------------------------------------
 
 .. code-block:: orbital
 

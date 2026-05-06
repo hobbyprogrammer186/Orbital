@@ -17,6 +17,7 @@
 #include <Parser.h>
 #include <Lexer.h>
 #include <orbtlio.h>
+#include <definations.h>
 
 std::map<std::string, VariableInfo> variableTable;
 std::map<std::string, FunctionNode*> functionTable;
@@ -73,10 +74,31 @@ AST* Parser::factor() {
             while(current().token != TOKEN_RPAREN) {
                 if(current().token == TOKEN_RPAREN)
                     break;
-                if(current().token == TOKEN_COMMA)
+
+                if(functionTable.find(current().value) != functionTable.end) {
+                    std::string functionName = current().value;
+                    std::vector<AST*> fargs;
                     idx++;
-                else if(current().token != TOKEN_EOL && current().token != TOKEN_SEMICOLON) {
-                    expect(TOKEN_RPAREN, "Expected/Missing ',' Or ')'");
+                    for(std::string arg : functionTable.find(functionName)->second.args) {
+                        if(current().TOKEN == TOKEN_SEMICOLON)
+                            break;
+                        
+                        if(current().token == TOKEN_COMMA)
+                            idx++;
+                        else if(current().token != TOKEN_EOL && current().token != TOKEN_FULL_STOP) {
+                            expect(TOKEN_RPAREN, "Expected/Missing '.'");
+                            return nullptr;
+                        }
+                        else
+                            fargs.push_back(factor());
+                    }
+                    args.push_back(new StringNode(Evalulate(new CallNode(functionName, fargs))));
+                }
+                
+                if(current().token == TOKEN_COMMA || TOKEN_SEMICOLON)
+                    idx++;
+                else if(current().token != TOKEN_EOL && current().token != TOKEN_FULL_STOP) {
+                    expect(TOKEN_RPAREN, "Expected/Missing ',' Or ';' Or ')'");
                     return nullptr;
                 }
                 else
@@ -95,6 +117,27 @@ AST* Parser::factor() {
             std::vector<AST*> args;
             while(current().token != TOKEN_EOL && current().token != TOKEN_EOF) {
                 args.push_back(comparison());
+
+                if(functionTable.find(current().value) != functionTable.end) {
+                    std::string functionName = current().value;
+                    std::vector<AST*> fargs;
+                    idx++;
+                    for(std::string arg : functionTable.find(functionName)->second.args) {
+                        if(current().TOKEN == TOKEN_SEMICOLON)
+                            break;
+                        
+                        if(current().token == TOKEN_COMMA)
+                            idx++;
+                        else if(current().token != TOKEN_EOL && current().token != TOKEN_FULL_STOP) {
+                            expect(TOKEN_RPAREN, "Expected/Missing '.'");
+                            return nullptr;
+                        }
+                        else
+                            fargs.push_back(factor());
+                    }
+                    args.push_back(new StringNode(Evalulate(new CallNode(functionName, fargs))));
+                }
+
                 if(current().token == TOKEN_COMMA)
                     idx++;
                 else
@@ -242,6 +285,17 @@ AST* Parser::statement() {
                 else
                     return new ReturnNode(next.value);
             }
+            else if(current().token == TOKEN_IMPORT) {
+                std::vector<std::string> pths;
+                while(current().token != TOKEN_FULL_STOP && current().token != TOKEN_EOL) {
+                    if(current().token == TOKEN_COMMA)
+                        idx++;
+                    else
+                        pths.push_back(current().value);
+                }
+
+                return new ImportNode(pths);
+            }
         }
     }
     else if(current().token == TOKEN_IF) {
@@ -345,20 +399,7 @@ AST* Parser::parseFunction() {
     }
     else if(current().token == TOKEN_LPAREN && current().value == "(") {
         idx++;
-        while(current().token != TOKEN_RPAREN) {
-            if(current().token != TOKEN_IDENTIFIER && current().token != TOKEN_NUMBER && current().token != TOKEN_COMMA) {
-                lex.error(current(), "Expected Argurement.");
-                return nullptr;
-            }
-
-            if(current().token == TOKEN_IDENTIFIER || current().token == TOKEN_NUMBER) {
-                args.push_back(current().value);
-                idx++;
-            }
-            
-            if(current().token == TOKEN_COMMA)
-                idx++;
-        }
+        current().token == TOKEN_EOL;
         
         idx++;
         if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
@@ -412,14 +453,14 @@ AST* Parser::parseFunction() {
 std::vector<AST*> Parser::parse() {
     std::vector<AST*> nodes;
     while(idx < tokens.size() && current().token != TOKEN_EOF) {
-        if(current().token == TOKEN_EOL || current().token == TOKEN_SEMICOLON) {
+        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP) {
             idx++;
             continue;
         }
         
         nodes.push_back(statement());
         
-        if(current().token == TOKEN_EOL || current().token == TOKEN_SEMICOLON)
+        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP)
             idx++;
     }
     return nodes;
@@ -445,7 +486,7 @@ std::vector<AST*> Parser::parseBlocks() {
 
         nodes.push_back(statement());
 
-        if(current().token == TOKEN_EOL || current().token == TOKEN_SEMICOLON)
+        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP)
             idx++;
     }
     return nodes;
@@ -707,6 +748,12 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
                         else return std::to_string(v);
                     }, r));
             }
+        }
+    }
+    else if (auto ld = dynamic_cast<ImportNode*>(node)) {
+        Lexer.warn(tokens[idx], "Import Is Not Implented.")
+        for(std::string path : ld->files) {
+            // I Will Be Implement
         }
     }
     else {

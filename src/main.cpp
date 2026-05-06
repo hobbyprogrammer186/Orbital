@@ -27,8 +27,6 @@ namespace fs = std::filesystem;
     #include <termios.h>
 #endif
 
-
-
 static const std::vector<std::string> KEYWORDS = {
     "import", "use", "class", "is", "in", "and", "or", "not",
     "True", "False", "None", "const", "if", "else", "elif",
