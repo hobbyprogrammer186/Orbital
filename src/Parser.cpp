@@ -459,14 +459,14 @@ AST* Parser::parseFunction() {
 std::vector<AST*> Parser::parse() {
     std::vector<AST*> nodes;
     while(idx < tokens.size() && current().token != TOKEN_EOF) {
-        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP) {
+        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP || current().token == TOKEN_SEMICOLON) {
             idx++;
             continue;
         }
         
         nodes.push_back(statement());
         
-        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP)
+        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP || current().token == TOKEN_SEMICOLON)
             idx++;
     }
     return nodes;
@@ -481,7 +481,7 @@ std::vector<AST*> Parser::parseBlocks() {
         idx++;
 
     while(idx < tokens.size() && current().token != TOKEN_EOF) {
-        if(current().token == TOKEN_EOL) {
+        if(current().token == TOKEN_EOL || current().token == TOKEN_SEMICOLON) {
             idx++;
             continue;
         }
@@ -492,7 +492,7 @@ std::vector<AST*> Parser::parseBlocks() {
 
         nodes.push_back(statement());
 
-        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP)
+        if(current().token == TOKEN_EOL || current().token == TOKEN_FULL_STOP || current().token == TOKEN_SEMICOLON)
             idx++;
     }
     return nodes;

@@ -17,8 +17,13 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <unistd.h>
-#include <termios.h>
+#if defined(_WIN32) || defined(_WIN64)
+    #include <conio.h>
+    #include <windows.h>
+#else
+    #include <unistd.h>
+    #include <termios.h>
+#endif
 #include <cctype>
 #include <csignal>
 
@@ -60,23 +65,209 @@ static std::string find_suggestion(const std::string& buffer) {
     return std::string();
 }
 
+static std::vector<std::string> get_matching_suggestions(const std::string& prefix) {
+    std::vector<std::string> matches;
+    if (prefix.empty()) return matches;
+
+    std::vector<std::string> all = get_all_suggestions();
+    for (const auto &kw : all) {
+        if (kw.size() >= prefix.size() && kw.compare(0, prefix.size(), prefix) == 0) {
+            matches.push_back(kw);
+        }
+    }
+    return matches;
+}
+
 // Inline suggestion input using termios and ANSI escapes. Tab accepts suggestion.
 std::string input() {
     std::string buffer;
-    std::cout << ">> " << std::flush;
 
+    auto extract_current_word = [](const std::string &buf) {
+        std::string w;
+        for (int i = (int)buf.size() - 1; i >= 0; --i) {
+            char c = buf[i];
+            if (std::isspace(static_cast<unsigned char>(c))) break;
+            w.insert(w.begin(), c);
+        }
+        return w;
+    };
+
+    const int MAX_VISIBLE = 6;
+    const int BOX_MAX_WIDTH = 60;
+
+    std::vector<std::string> suggestions;
+    int selected_idx = -1;
+    bool showing = false;
+
+    auto update_suggestions = [&]() {
+        std::string prefix = extract_current_word(buffer);
+        suggestions = get_matching_suggestions(prefix);
+        if (!prefix.empty() && !suggestions.empty()) {
+            showing = true;
+            selected_idx = 0;
+        } else {
+            showing = false;
+            selected_idx = -1;
+        }
+    };
+
+    // initial prompt
+    std::cout << ">> " << buffer << std::flush;
+
+    int last_box_lines = 0;
+
+    update_suggestions();
+
+    auto render_box = [&]() {
+        // reprint prompt and clear below
+        std::cout << "\r\x1b[K>> " << buffer;
+        std::cout << "\x1b[J"; // clear below
+
+        int printed_lines = 0;
+        if (showing && !suggestions.empty()) {
+            int total = (int)suggestions.size();
+            int start = 0;
+            if (selected_idx >= MAX_VISIBLE / 2) start = selected_idx - MAX_VISIBLE / 2;
+            if (start + MAX_VISIBLE > total) start = std::max(0, total - MAX_VISIBLE);
+            int end = std::min(total, start + MAX_VISIBLE);
+
+            size_t maxlen = 0;
+            for (int i = start; i < end; ++i) if (suggestions[i].size() > maxlen) maxlen = suggestions[i].size();
+            size_t content_width = std::min<size_t>(BOX_MAX_WIDTH, std::max<size_t>(10, maxlen + 2));
+            std::string horiz(content_width, '-');
+
+            // top border
+            std::cout << "\n+" << horiz << "+\n";
+            printed_lines += 2;
+
+            for (int i = start; i < end; ++i) {
+                std::string item = suggestions[i];
+                size_t pad = (content_width - 2 > item.size()) ? (content_width - 2 - item.size()) : 0;
+                std::string padded = item + std::string(pad, ' ');
+
+                if (i == selected_idx) {
+                    std::cout << "| " << "\x1b[7m" << padded << "\x1b[0m" << " |";
+                } else {
+                    std::cout << "| " << "\x1b[90m" << padded << "\x1b[0m" << " |";
+                }
+                std::cout << "\n";
+                printed_lines++;
+            }
+
+            // bottom border
+            std::cout << "+" << horiz << "+\n";
+            printed_lines++;
+
+            // footer
+            std::cout << "[" << (start + 1) << "-" << end << "/" << total << "] Use Tab to accept, ↑/↓ to navigate\n";
+            printed_lines++;
+
+            // move cursor back up to prompt line
+            std::cout << "\x1b[" << printed_lines << "A";
+
+            // reprint prompt to position cursor at end
+            std::cout << "\r\x1b[K>> " << buffer;
+        }
+
+        std::cout << std::flush;
+        last_box_lines = printed_lines;
+    };
+
+    render_box();
+
+#if defined(_WIN32) || defined(_WIN64)
+    // Enable ANSI processing on Windows consoles if possible
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE) {
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode)) {
+            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            SetConsoleMode(hOut, dwMode);
+        }
+    }
+
+    while (true) {
+        int ch = _getch();
+
+        if (ch == 13) { // Enter
+            std::cout << std::endl;
+            return buffer;
+        }
+        if (ch == 3) { // Ctrl-C
+            std::raise(SIGINT);
+            return std::string();
+        }
+        if (ch == 4) { // Ctrl-D (not typical on Windows)
+            return std::string();
+        }
+
+        if (ch == 8) { // Backspace
+            if (!buffer.empty()) buffer.pop_back();
+            update_suggestions();
+            render_box();
+            continue;
+        }
+
+        if (ch == 9) { // Tab
+            if (showing && selected_idx >= 0 && selected_idx < (int)suggestions.size()) {
+                std::string prefix = extract_current_word(buffer);
+                buffer = buffer.substr(0, buffer.size() - prefix.size());
+                buffer += suggestions[selected_idx];
+                update_suggestions();
+                render_box();
+            }
+            continue;
+        }
+
+        if (ch == 0 || ch == 224) {
+            int code = _getch();
+            if (code == 72) { // up
+                if (showing && !suggestions.empty()) {
+                    selected_idx = (selected_idx - 1 + (int)suggestions.size()) % (int)suggestions.size();
+                    render_box();
+                }
+                continue;
+            } else if (code == 80) { // down
+                if (showing && !suggestions.empty()) {
+                    selected_idx = (selected_idx + 1) % (int)suggestions.size();
+                    render_box();
+                }
+                continue;
+            }
+            // ignore other special keys
+            continue;
+        }
+
+        if (ch == 27) { // ESC
+            if (showing) {
+                showing = false;
+                suggestions.clear();
+                selected_idx = -1;
+                std::cout << "\r\x1b[K\x1b[J";
+                std::cout << "\r\x1b[K>> " << buffer << std::flush;
+            }
+            continue;
+        }
+
+        if (std::isprint(static_cast<unsigned char>(ch))) {
+            buffer.push_back((char)ch);
+            update_suggestions();
+            render_box();
+            continue;
+        }
+    }
+#else
     termios oldt, newt;
     if (tcgetattr(STDIN_FILENO, &oldt) == -1) {
-        // Fallback to basic getline if termios unsupported
+        // fallback
         if (!std::getline(std::cin, buffer)) return std::string();
         return buffer;
     }
     newt = oldt;
     newt.c_lflag &= ~(ICANON | ECHO);
     newt.c_cc[VMIN] = 1;
-    newt.c_cc[VTIME] = 0;
+    newt.c_cc[VTIME] = 1; // allow short inter-byte timeout for escape sequences
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-
     auto restore = [&]() { tcsetattr(STDIN_FILENO, TCSANOW, &oldt); };
 
     while (true) {
@@ -98,22 +289,76 @@ std::string input() {
             restore();
             return std::string();
         }
-        if (ch == 127 || ch == 8) { // Backspace
+
+        if (ch == 127 || ch == 8) { // backspace
             if (!buffer.empty()) buffer.pop_back();
-        } else if (ch == '\t') { // Tab: accept suggestion
-            std::string sug = find_suggestion(buffer);
-            if (!sug.empty()) buffer += sug;
-        } else if (ch >= 32 && ch <= 126) {
-            buffer.push_back(ch);
+            update_suggestions();
+            render_box();
+            continue;
         }
 
-        std::string sug = find_suggestion(buffer);
-        std::cout << "\r\x1b[K" << ">> " << buffer;
-        if (!sug.empty()) {
-            std::cout << "\x1b[90m" << "-> " << sug << "\x1b[0m";
+        if (ch == '\t') { // Tab: accept selected suggestion
+            if (showing && selected_idx >= 0 && selected_idx < (int)suggestions.size()) {
+                std::string prefix = extract_current_word(buffer);
+                buffer = buffer.substr(0, buffer.size() - prefix.size());
+                buffer += suggestions[selected_idx];
+                update_suggestions();
+                render_box();
+            }
+            continue;
         }
-        std::cout << std::flush;
+
+        if (ch == '\x1b') {
+            // possible arrow key sequence; read up to two more bytes with short timeout
+            termios tmp = newt;
+            tmp.c_cc[VMIN] = 0;
+            tmp.c_cc[VTIME] = 1;
+            tcsetattr(STDIN_FILENO, TCSANOW, &tmp);
+            char seq1 = 0, seq2 = 0;
+            ssize_t r1 = read(STDIN_FILENO, &seq1, 1);
+            ssize_t r2 = read(STDIN_FILENO, &seq2, 1);
+            tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+            if (r1 > 0 && seq1 == '[' && r2 > 0) {
+                if (seq2 == 'A') { // up
+                    if (showing && !suggestions.empty()) {
+                        selected_idx = (selected_idx - 1 + (int)suggestions.size()) % (int)suggestions.size();
+                        render_box();
+                    }
+                    continue;
+                } else if (seq2 == 'B') { // down
+                    if (showing && !suggestions.empty()) {
+                        selected_idx = (selected_idx + 1) % (int)suggestions.size();
+                        render_box();
+                    }
+                    continue;
+                }
+            }
+
+            // ESC alone -> dismiss suggestions
+            if (showing) {
+                showing = false;
+                suggestions.clear();
+                selected_idx = -1;
+                std::cout << "\r\x1b[K\x1b[J";
+                std::cout << "\r\x1b[K>> " << buffer << std::flush;
+            }
+            continue;
+        }
+
+        if (std::isprint(static_cast<unsigned char>(ch))) {
+            buffer.push_back(ch);
+            update_suggestions();
+            render_box();
+            continue;
+        }
+
+        // otherwise ignore
     }
+
+    restore();
+    return buffer;
+#endif
 }
 
 int main(int argc, char **argv) {
