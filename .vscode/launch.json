@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/src/orbital",
       "args": [
-        "${workspaceFolder}/sample/if_else.obt"
+        "${workspaceFolder}/sample/import_test.obt"
       ],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,

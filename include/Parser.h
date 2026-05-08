@@ -137,7 +137,9 @@ class Parser {
 private:
     std::vector<TOKEN> tokens;
     Lexer lex;
+    std::vector<Lexer> mlex;
     size_t idx = 0;
+    std::string fname; // filename associated with these tokens (for resolving relative imports)
 
     TOKEN& current();
     bool match(TOKEN_TYPE type);
@@ -160,7 +162,8 @@ public:
         : Parser(std::move(buffer), std::nullopt) {}
 
     Parser(std::string buffer, std::optional<std::string> filename) {
-        tokens = lex.Tokenize(std::move(buffer), filename.value_or(""));
+        fname = filename.value_or("");
+        tokens = lex.Tokenize(std::move(buffer), fname);
         idx = 0;
     }
 

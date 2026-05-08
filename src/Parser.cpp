@@ -14,6 +14,7 @@
 #include <utility>
 #include <variant>
 #include <map>
+#include <set>
 #include <Parser.h>
 #include <Lexer.h>
 #include <orbtlio.h>
@@ -21,6 +22,7 @@
 
 std::map<std::string, VariableInfo> variableTable;
 std::map<std::string, FunctionNode*> functionTable;
+static std::set<std::string> importedFiles;
 
 void Parser::Interpret() {
     std::vector<AST*> nodes = parse();
@@ -68,52 +70,25 @@ AST* Parser::factor() {
     }
     else if(match(TOKEN_IDENTIFIER)) {
         if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && tokens[idx].token == TOKEN_LPAREN) {
+            // parse parenthesized function call: identifier '(' [expr (',' expr)*] ')'
             idx++; // skip '('
-            
-            std::vector<AST*> args;
-            while(current().token != TOKEN_RPAREN) {
-                if(current().token == TOKEN_RPAREN)
-                    break;
 
-                if(functionTable.find(current().value) != functionTable.end()) {
-                    std::string functionName = current().value;
-                    std::vector<AST*> fargs;
-                    idx++;
-                    for(std::string arg : functionTable.find(functionName)->second->args) {
-                        if(current().token == TOKEN_SEMICOLON)
-                            break;
-                        
-                        if(current().token == TOKEN_COMMA)
-                            idx++;
-                        else if(current().token != TOKEN_EOL && current().token != TOKEN_FULL_STOP) {
-                            expect(TOKEN_RPAREN, "Expected/Missing '.'");
-                            return nullptr;
-                        }
-                        else
-                            fargs.push_back(factor());
+            std::vector<AST*> args;
+            // If immediate closing paren, return empty-arg call
+            if (current().token != TOKEN_RPAREN) {
+                while (true) {
+                    AST* a = comparison();
+                    if (!a) return nullptr;
+                    args.push_back(a);
+
+                    if (current().token == TOKEN_COMMA) {
+                        idx++; // consume comma and continue
+                        continue;
                     }
-                    auto val = Evalulate(new CallNode(functionName, fargs));
-                    std::string str_val;
-                    std::visit([&str_val](auto&& arg) {
-                        using T = std::decay_t<decltype(arg)>;
-                        if constexpr (std::is_same_v<T, std::string>) {
-                            str_val = arg;
-                        } else {
-                            str_val = std::to_string(arg);
-                        }
-                    }, val);
-                    args.push_back(new StringNode(str_val));
+                    break;
                 }
-                
-                if(current().token == TOKEN_COMMA || TOKEN_SEMICOLON)
-                    idx++;
-                else if(current().token != TOKEN_EOL && current().token != TOKEN_FULL_STOP) {
-                    expect(TOKEN_RPAREN, "Expected/Missing ',' Or ';' Or ')'");
-                    return nullptr;
-                }
-                else
-                    args.push_back(comparison());
             }
+
             expect(TOKEN_RPAREN, "Bracket Is Not Terminated.");
             if(!args.empty())
                 return new CallNode(tkn.value, args);
@@ -306,12 +281,23 @@ AST* Parser::statement() {
                     return new ReturnNode(next.value);
             }
             else if(current().token == TOKEN_IMPORT) {
+                // parse: import <path1>, <path2> .
+                idx++; // consume 'import'
                 std::vector<std::string> pths;
-                while(current().token != TOKEN_FULL_STOP && current().token != TOKEN_EOL) {
-                    if(current().token == TOKEN_COMMA)
+                while(idx < tokens.size() && current().token != TOKEN_FULL_STOP && current().token != TOKEN_EOL && current().token != TOKEN_EOF) {
+                    if(current().token == TOKEN_COMMA) {
                         idx++;
-                    else
+                        continue;
+                    }
+
+                    if(current().token == TOKEN_STRING || current().token == TOKEN_IDENTIFIER) {
                         pths.push_back(current().value);
+                        idx++;
+                        continue;
+                    }
+
+                    lex.error(current(), "Invalid import path.");
+                    return nullptr;
                 }
 
                 return new ImportNode(pths);
@@ -771,10 +757,56 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         }
     }
     else if (auto ld = dynamic_cast<ImportNode*>(node)) {
-        lex.warn(tokens[idx], "Import Is Not Implented.");
-        for(std::string path : ld->files) {
-            // I Will Be Implement
+        // Import each specified file: resolve path relative to current file,
+        // prevent duplicate/circular imports via importedFiles set, parse and interpret.
+        for (const std::string& rawPath : ld->files) {
+            if (rawPath.empty())
+                continue;
+
+            std::filesystem::path p(rawPath);
+            if (p.is_relative() && !fname.empty()) {
+                p = std::filesystem::path(fname).parent_path() / p;
+            }
+
+            if (!p.has_extension())
+                p += ".obt";
+
+            if (!std::filesystem::exists(p)) {
+                lex.error(current(), "Import file not found: " + p.string());
+                return 0L;
+            }
+
+            std::filesystem::path canonical;
+            try {
+                canonical = std::filesystem::canonical(p);
+            } catch(...) {
+                canonical = std::filesystem::absolute(p);
+            }
+
+            std::string canonicalStr = canonical.string();
+            if (importedFiles.find(canonicalStr) != importedFiles.end()) {
+                // already imported
+                continue;
+            }
+
+            importedFiles.insert(canonicalStr);
+
+            std::ifstream file(canonical);
+            if (!file.is_open()) {
+                lex.error(current(), "Unable to open import file: " + canonical.string());
+                return 0L;
+            }
+
+            std::stringstream buf;
+            buf << file.rdbuf();
+            std::string content = buf.str();
+            file.close();
+
+            // Parse and interpret the imported file in its own Parser instance
+            Parser importer(content, canonicalStr);
+            importer.Interpret();
         }
+        return 0L;
     }
     else {
         lex.error(tokens[idx], "Syntax Error.");
