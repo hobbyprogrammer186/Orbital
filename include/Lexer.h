@@ -72,9 +72,9 @@ typedef enum {
     TOKEN_STRUCT,
     TOKEN_VOLATILE,
     TOKEN_VIEW_OBJECT
-} TOKEN_TYPE;
+} ORB_TOKEN_TYPE;
 
-static std::unordered_map<std::string, TOKEN_TYPE> keywords = {
+static std::unordered_map<std::string, ORB_TOKEN_TYPE> keywords = {
     {"import", TOKEN_IMPORT},
     {"use", TOKEN_IMPORT},
 
@@ -120,11 +120,11 @@ static std::unordered_map<std::string, TOKEN_TYPE> keywords = {
     {"symbol", TOKEN_VIEW_OBJECT}
 };
 
-typedef struct TOKEN {
-	TOKEN_TYPE token;
-	int row = 1, col = 1;
-	std::string value;
-} TOKEN;
+typedef struct ORB_TOKEN {
+    ORB_TOKEN_TYPE token;
+    int row = 1, col = 1;
+    std::string value;
+} ORB_TOKEN;
 
 class Lexer {
 private:
@@ -142,7 +142,7 @@ private:
 
 public:
 	std::string buffer;
-	std::vector<TOKEN> Tokenize(std::string input, std::string filename);
-	void error(TOKEN tkn, std::string msg);
-    void warn(TOKEN tkn, std::string msg);
+    std::vector<ORB_TOKEN> Tokenize(std::string input, std::string filename);
+    void error(ORB_TOKEN tkn, std::string msg);
+    void warn(ORB_TOKEN tkn, std::string msg);
 };

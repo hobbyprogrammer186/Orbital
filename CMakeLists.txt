@@ -19,6 +19,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     target_link_options(orbital PRIVATE -static-libgcc -static-libstdc++)
 endif()
+
 #[[
 if(WIN32)
     # Use dlfcn-win32 to provide dlopen/dlsym on Windows
@@ -29,6 +30,7 @@ else()
     set(DL_LIBRARY ${CMAKE_DL_LIBS})
 endif()
 ]]
+
 project ("Orbital")
 set(VERSION_STRING "1.0.0-alpha")
 string(TOLOWER ${PROJECT_NAME} EXECUTEABLE_NAME)
@@ -38,7 +40,10 @@ if(DEFINED ENV{VCPKG_ROOT})
 endif()
 
 # Include Dependencies
-if(WIN32)
+# Detect Windows-like targets (native or cross) and prefer PDCurses there.
+# Match common indicators: WIN32/MSVC/MINGW, explicit system name, or compiler path.
+if(WIN32 OR MSVC OR MINGW OR CMAKE_SYSTEM_NAME STREQUAL "Windows"
+    OR CMAKE_C_COMPILER MATCHES "mingw" OR CMAKE_CXX_COMPILER MATCHES "mingw")
     find_package(unofficial-pdcurses CONFIG REQUIRED)
 else()
     find_package(Curses REQUIRED)

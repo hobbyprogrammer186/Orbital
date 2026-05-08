@@ -33,3 +33,4 @@ out/
 # Binary Files And Packages
 out/
 vcpkg_installed/
+vcpkg-success-triplet.txt

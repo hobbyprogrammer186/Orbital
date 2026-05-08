@@ -58,10 +58,10 @@ struct VariableNode : AST {
 
 struct BinOpNode : AST {
     AST* left;
-    TOKEN_TYPE opr;
+    ORB_TOKEN_TYPE opr;
     AST* right;
 
-    BinOpNode(AST* l, TOKEN_TYPE op, AST* r)
+    BinOpNode(AST* l, ORB_TOKEN_TYPE op, AST* r)
         : left(l), opr(op), right(r) {}
 };
 
@@ -76,9 +76,9 @@ struct AssignNode : AST {
 struct BooleanNode : AST {
     AST* left;
     AST* right;
-    TOKEN_TYPE op;
+    ORB_TOKEN_TYPE op;
 
-    BooleanNode(AST* l, TOKEN_TYPE o, AST* r)
+    BooleanNode(AST* l, ORB_TOKEN_TYPE o, AST* r)
         : left(l), right(r), op(o) {}
 };
 
@@ -135,15 +135,15 @@ struct ImportNode : AST {
 
 class Parser {
 private:
-    std::vector<TOKEN> tokens;
+    std::vector<ORB_TOKEN> tokens;
     Lexer lex;
     std::vector<Lexer> mlex;
     size_t idx = 0;
     std::string fname; // filename associated with these tokens (for resolving relative imports)
 
-    TOKEN& current();
-    bool match(TOKEN_TYPE type);
-    void expect(TOKEN_TYPE type, std::optional<std::string> msg);
+    ORB_TOKEN& current();
+    bool match(ORB_TOKEN_TYPE type);
+    void expect(ORB_TOKEN_TYPE type, std::optional<std::string> msg);
 
     AST* factor();
     AST* term();
@@ -167,7 +167,7 @@ public:
         idx = 0;
     }
 
-    const std::vector<TOKEN>& getTokens() const { return tokens; }
+    const std::vector<ORB_TOKEN>& getTokens() const { return tokens; }
 
     void Interpret();
 

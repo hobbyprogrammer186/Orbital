@@ -28,9 +28,9 @@ std::string getLine(const std::string& input, int targetLine) {
 	return "";
 }
 
-std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
-	std::vector<TOKEN> tkns;
-	TOKEN tkn;
+std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
+	std::vector<ORB_TOKEN> tkns;
+	ORB_TOKEN tkn;
 	fname = filename;
 	buffer = value;
 	idx = 0;
@@ -60,7 +60,7 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 			
 			auto it = keywords.find(word);
 			if(it != keywords.end())
-				tkn.token = (TOKEN_TYPE)it->second;
+				tkn.token = (ORB_TOKEN_TYPE)it->second;
 			else
 				tkn.token = TOKEN_IDENTIFIER;
 
@@ -189,7 +189,7 @@ std::vector<TOKEN> Lexer::Tokenize(std::string value, std::string filename) {
 		tkns.push_back(tkn);
 	}
 
-	TOKEN eof;
+	ORB_TOKEN eof;
 	eof.token = TOKEN_EOF;
 	eof.value = "";
 	eof.row = row;
@@ -208,7 +208,7 @@ bool Lexer::isAtEnd() {
 	return idx >= buffer.length();
 }
 
-void Lexer::error(TOKEN tkn, std::string msg) {
+void Lexer::error(ORB_TOKEN tkn, std::string msg) {
     // Print location header
     if (!fname.empty())
         std::cout << fname << ":" << tkn.row << ":" << tkn.col << "\n";
@@ -239,7 +239,7 @@ void Lexer::error(TOKEN tkn, std::string msg) {
     exit(1);
 }
 
-void Lexer::warn(TOKEN tkn, std::string msg) {
+void Lexer::warn(ORB_TOKEN tkn, std::string msg) {
     // Print location header
     if (!fname.empty())
         std::cout << fname << ":" << tkn.row << ":" << tkn.col << "\n";

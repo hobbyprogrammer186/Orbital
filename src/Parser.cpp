@@ -31,11 +31,11 @@ void Parser::Interpret() {
     }
 }
 
-TOKEN& Parser::current() {
+ORB_TOKEN& Parser::current() {
     return tokens[idx];
 }
 
-bool Parser::match(TOKEN_TYPE type) {
+bool Parser::match(ORB_TOKEN_TYPE type) {
     if(current().token == type) {
         idx++;
         return true;
@@ -43,15 +43,15 @@ bool Parser::match(TOKEN_TYPE type) {
     return false;
 }
 
-void Parser::expect(TOKEN_TYPE type, std::optional<std::string> msg) {
+void Parser::expect(ORB_TOKEN_TYPE type, std::optional<std::string> msg) {
     if(match(type))
         return;
-    
+
     lex.error(current(), msg.value_or("Syntax Error."));
 }
 
 AST* Parser::factor() {
-    TOKEN& tkn = current();
+    ORB_TOKEN& tkn = current();
 
     if(match(TOKEN_NUMBER))
         return new NumberNode(std::stod(tkn.value));
@@ -157,7 +157,7 @@ AST* Parser::term() {
     AST* node = factor();
 
     while(current().token == TOKEN_MULTIPLY || current().token == TOKEN_DIVIDE) {
-        TOKEN_TYPE op = current().token;
+        ORB_TOKEN_TYPE op = current().token;
         idx++;
         node = new BinOpNode(node, op, factor());
     }
@@ -168,7 +168,7 @@ AST* Parser::term() {
 AST* Parser::expr() {
     AST* node = term();
     while(current().token == TOKEN_PLUS || current().token == TOKEN_MINUS) {
-        TOKEN_TYPE op = current().token;
+        ORB_TOKEN_TYPE op = current().token;
         idx++;
         node = new BinOpNode(node, op, term());
     }
@@ -181,7 +181,7 @@ AST* Parser::comparison() {
             || current().token == TOKEN_GREATER_EQUAL || current().token == TOKEN_SHORTER_EQUAL
             || current().token == TOKEN_EQUAL)
     {
-        TOKEN_TYPE op = current().token;
+        ORB_TOKEN_TYPE op = current().token;
         idx++;
         AST* right = expr();
         node = new BooleanNode(node, op, right);
@@ -192,7 +192,7 @@ AST* Parser::comparison() {
 AST* Parser::statement() {
     if(current().token == TOKEN_IDENTIFIER) {
         if(idx < tokens.size() - 1) {
-            TOKEN& next = tokens[idx + 1];
+            ORB_TOKEN& next = tokens[idx + 1];
             
             if(next.token == TOKEN_ASIGNMENT && next.value == ":")
                 return parseFunction();
@@ -219,7 +219,7 @@ AST* Parser::statement() {
                     || next.token == TOKEN_EQUAL)
             {
                 AST* left = expr();
-                TOKEN_TYPE op = current().token;
+                ORB_TOKEN_TYPE op = current().token;
                 idx++;
                 AST* right = expr();
                 

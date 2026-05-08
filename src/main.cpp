@@ -159,7 +159,13 @@ std::string input() {
             printed_lines++;
 
             // footer
+#if defined(_WIN32) || defined(_WIN64)
+            // Some Windows consoles (especially older versions) do not render
+            // UTF-8 arrow characters correctly. Use an ASCII fallback.
+            std::cout << "[" << (start + 1) << "-" << end << "/" << total << "] Use Tab to accept, Up/Down to navigate\n";
+#else
             std::cout << "[" << (start + 1) << "-" << end << "/" << total << "] Use Tab to accept, ↑/↓ to navigate\n";
+#endif
             printed_lines++;
 
             // move cursor back up to prompt line
@@ -176,7 +182,10 @@ std::string input() {
     render_box();
 
 #if defined(_WIN32) || defined(_WIN64)
-    // Enable ANSI processing on Windows consoles if possible
+    // Enable ANSI processing on Windows consoles if possible and try to
+    // switch the output code page to UTF-8. Older Windows (e.g., 7) may not
+    // fully support UTF-8 in the console; we still attempt this but keep an
+    // ASCII fallback elsewhere.
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hOut != INVALID_HANDLE_VALUE) {
         DWORD dwMode = 0;
@@ -185,6 +194,10 @@ std::string input() {
             SetConsoleMode(hOut, dwMode);
         }
     }
+    // Try to set console output to UTF-8. This may fail on older systems,
+    // but it's safe to attempt.
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
 
     while (true) {
         int ch = _getch();
