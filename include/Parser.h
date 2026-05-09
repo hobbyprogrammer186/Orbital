@@ -53,7 +53,9 @@ struct StringNode : AST {
 
 struct VariableNode : AST {
     std::string name;
-    VariableNode(std::string n) : name(std::move(n)) {}
+    int row;
+    int col;
+    VariableNode(std::string n, int r = 1, int c = 1) : name(std::move(n)), row(r), col(c) {}
 };
 
 struct BinOpNode : AST {

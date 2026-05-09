@@ -145,7 +145,7 @@ AST* Parser::factor() {
                 return new CallNode(tkn.value);
         }
         else
-            return new VariableNode(tkn.value);
+            return new VariableNode(tkn.value, tkn.row, tkn.col);
     }
     else {
         lex.error(current(), "Invalid Bracket.");
@@ -559,7 +559,11 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         return s->value;
     else if(auto v = dynamic_cast<VariableNode*>(node)) {
         if (variableTable.find(v->name) == variableTable.end()) {
-            lex.error(tokens[idx], "Undefined variable/function: " + v->name);
+            ORB_TOKEN err_tkn;
+            err_tkn.row = v->row;
+            err_tkn.col = v->col;
+            err_tkn.value = v->name;
+            lex.error(err_tkn, "Undefined variable/function: " + v->name);
             return 0L;
         }
         const std::string& val = variableTable[v->name].value;

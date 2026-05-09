@@ -76,7 +76,7 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 			while (idx < value.length() && value[idx] != '"') {
 				str += value[idx++];
 			}
-			idx++;
+			if (idx < value.length() && value[idx] == '"') idx++;
 			tkn.token = TOKEN_STRING;
 			tkn.value = str;
 		}
@@ -85,12 +85,10 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 				tkn.token = TOKEN_EQUAL;
 				tkn.value = "==";
 				idx += 2;
-				col += 2;
 			} else {
 				tkn.token = TOKEN_ASIGNMENT;
 				tkn.value = "=";
 				idx++;
-				col++;
 			}
 		}
 		else if (cur == '>') {
@@ -98,12 +96,10 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 				tkn.token = TOKEN_GREATER_EQUAL;
 				tkn.value = ">=";
 				idx += 2;
-				col += 2;
 			} else {
 				tkn.token = TOKEN_GREATER;
 				tkn.value = ">";
 				idx++;
-				col++;
 			}
 		}
 		else if (cur == '<') {
@@ -111,12 +107,10 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 				tkn.token = TOKEN_SHORTER_EQUAL;
 				tkn.value = "<=";
 				idx += 2;
-				col += 2;
 			} else {
 				tkn.token = TOKEN_SHORTER;
 				tkn.value = "<";
 				idx++;
-				col++;
 			}
 		}
 		else if (cur == '+') {
@@ -173,13 +167,15 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 		}
 		else if (cur == ' ' || cur == '\t' || cur == '\r') {
 			idx++;
-			col++;
+			int consumed = idx - lastIDX;
+			col += consumed;
 			continue;
 		}
 		else if (cur == '#') {
-			while(value[idx] != '\n')
-				idx++; // Ignore All Contents While Not End The Line
-			
+			while (idx < value.length() && value[idx] != '\n')
+				idx++; // Ignore all contents until end of line
+			int consumed = idx - lastIDX;
+			col += consumed;
 			continue;
 		}
 		else if (cur == '.') {
@@ -192,8 +188,13 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 			continue;
 		}
 
-		if(idx == lastIDX)
+		if (idx == lastIDX)
 			idx++;
+
+		int consumed = idx - lastIDX;
+		if (tkn.token != TOKEN_EOL) {
+			col += consumed;
+		}
 
 		tkns.push_back(tkn);
 	}
@@ -218,62 +219,57 @@ bool Lexer::isAtEnd() {
 }
 
 void Lexer::error(ORB_TOKEN tkn, std::string msg) {
-    // Print location header
-    if (!fname.empty())
-        std::cout << fname << ":" << tkn.row << ":" << tkn.col << "\n";
-    else
-        std::cout << tkn.row << ":" << tkn.col << "\n";
+	int err_row = std::max(1, tkn.row);
+	int err_col = std::max(1, tkn.col);
 
-    int start = std::max(1, tkn.row - PREVIOUS_LINE_BUFFER);
+	if (!fname.empty())
+		std::cout << fname << ":" << err_row << ":" << err_col << "\n";
+	else
+		std::cout << err_row << ":" << err_col << "\n";
 
-    // Margin Problem Is Here (Overmargin)
-    for (int i = start; i <= tkn.row; i++) {
-        std::string line = getLine(buffer, i);
-        if (!line.empty()) {
-            std::cout << i << " | " << line << "\n";
-        }
-    }
-	
-	// Margin Problem Is Here (Undermargin)
-    for (int i = 1; i < tkn.col; i++) {
-        std::cout << " ";
-    }
+	int start = std::max(1, err_row - PREVIOUS_LINE_BUFFER);
 
-    std::cout << "^\n";
-    for (int i = 1; i < tkn.col; i++) {
-        std::cout << " ";
-    }
-    std::cout << msg << "\n";
+	for (int i = start; i <= err_row; ++i) {
+		std::string line = getLine(buffer, i);
+		if (!line.empty()) {
+			std::cout << i << " | " << line << "\n";
+		}
+	}
 
-    exit(1);
+	int prefix_len = (int)std::to_string(err_row).size() + 3; // e.g. "N | "
+	int spaces_before_caret = prefix_len + (err_col - 1);
+	for (int s = 0; s < spaces_before_caret; ++s) std::cout << ' ';
+	std::cout << "^\n";
+
+	for (int s = 0; s < spaces_before_caret; ++s) std::cout << ' ';
+	std::cout << msg << "\n";
+
+	exit(1);
 }
 
 void Lexer::warn(ORB_TOKEN tkn, std::string msg) {
-    // Print location header
-    if (!fname.empty())
-        std::cout << fname << ":" << tkn.row << ":" << tkn.col << "\n";
-    else
-        std::cout << tkn.row << ":" << tkn.col << "\n";
+	int wrn_row = std::max(1, tkn.row);
+	int wrn_col = std::max(1, tkn.col);
 
-    int start = std::max(1, tkn.row - PREVIOUS_LINE_BUFFER);
+	if (!fname.empty())
+		std::cout << fname << ":" << wrn_row << ":" << wrn_col << "\n";
+	else
+		std::cout << wrn_row << ":" << wrn_col << "\n";
 
-    // Margin Problem Is Here (Overmargin)
-    for (int i = start; i <= tkn.row; i++) {
-        std::string line = getLine(buffer, i);
-        if (!line.empty()) {
-            std::cout << i << " | " << line << "\n";
-        }
-    }
-	
-	// Margin Problem Is Here (Undermargin)
-    for (int i = 1; i < tkn.col; i++) {
-        std::cout << " ";
-    }
+	int start = std::max(1, wrn_row - PREVIOUS_LINE_BUFFER);
 
-    std::cout << "^\n";
-    for (int i = 1; i < tkn.col; i++) {
-        std::cout << " ";
-    }
-	std::cout << "Warning: ";
-    std::cout << msg << "\n";
+	for (int i = start; i <= wrn_row; ++i) {
+		std::string line = getLine(buffer, i);
+		if (!line.empty()) {
+			std::cout << i << " | " << line << "\n";
+		}
+	}
+
+	int prefix_len = (int)std::to_string(wrn_row).size() + 3; // e.g. "N | "
+	int spaces_before_caret = prefix_len + (wrn_col - 1);
+	for (int s = 0; s < spaces_before_caret; ++s) std::cout << ' ';
+	std::cout << "^\n";
+
+	for (int s = 0; s < spaces_before_caret; ++s) std::cout << ' ';
+	std::cout << "Warning: " << msg << "\n";
 }
