@@ -21,11 +21,18 @@ jobs:
             cpp_compiler: g++
             build_type: Release
 
-          - os: windows-latest
-            compiler: msvc-latest
-            c_compiler: cl
-            cpp_compiler: cl
+          - os: ubuntu-latest
+            compiler: mingw
+            c_compiler: x86_64-w64-mingw32-gcc
+            cpp_compiler: x86_64-w64-mingw32-g++
             build_type: Release
+            target: windows
+
+          # - os: windows-latest
+          #   compiler: msvc-latest
+          #   c_compiler: cl
+          #   cpp_compiler: cl
+          #   build_type: Release
 
     steps:
       - name: Checkout repository
@@ -60,16 +67,19 @@ jobs:
       - name: Configure CMake
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            # Removing -G and -T allows CMake to autodetect VS 2022
-            cmake -S . -B "${{ steps.paths.outputs.build_dir }}" \
-                  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                  -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          # Unset VCPKG_ROOT to avoid the path mismatch warning
+          unset VCPKG_ROOT
+          if [ "${{ matrix.compiler }}" = "mingw" ]; then
+            sudo apt-get update
+            sudo apt-get install -y mingw-w64
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            # Update vcpkg to get the latest baseline commit
+            cd "$VCPKG_INSTALLATION_ROOT" && git pull
+            cd "$GITHUB_WORKSPACE"
+            vcpkg install
           else
-            cmake -S . -B "${{ steps.paths.outputs.build_dir }}" \
-                  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                  -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-                  -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+            sudo apt-get update
+            sudo apt-get install -y libncurses5-dev libncursesw5-dev
           fi
 
       - name: Build
@@ -79,7 +89,7 @@ jobs:
         id: binary
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          if [ "${{ matrix.os }}" = "windows-latest" ] || [ "${{ matrix.compiler }}" = "mingw" ]; then
             echo "binary_path=${{ steps.paths.outputs.build_dir }}/src/${{ matrix.build_type }}/orbital.exe" >> "$GITHUB_OUTPUT"
           else
             echo "binary_path=${{ steps.paths.outputs.build_dir }}/src/orbital" >> "$GITHUB_OUTPUT"
