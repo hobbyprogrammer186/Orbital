@@ -190,6 +190,44 @@ AST* Parser::comparison() {
 }
 
 AST* Parser::statement() {
+    if (current().token == TOKEN_IMPORT) {
+        // parse: import <path1>, <path2> .
+        idx++; // consume 'import'
+        std::vector<std::string> pths;
+        while (idx < tokens.size() && current().token != TOKEN_FULL_STOP && current().token != TOKEN_EOL && current().token != TOKEN_EOF) {
+            if (current().token == TOKEN_COMMA) {
+                idx++;
+                continue;
+            }
+
+            if (current().token == TOKEN_STRING) {
+                pths.push_back(current().value);
+                idx++;
+                continue;
+            } else if (current().token == TOKEN_IDENTIFIER) {
+                std::string path = current().value;
+                idx++;
+                // assemble dotted identifiers like hello_world.obt
+                while (idx < tokens.size() && current().token == TOKEN_FULL_STOP) {
+                    idx++; // consume '.'
+                    if (idx < tokens.size() && current().token == TOKEN_IDENTIFIER) {
+                        path += "." + current().value;
+                        idx++;
+                    } else {
+                        lex.error(current(), "Invalid import path.");
+                        return nullptr;
+                    }
+                }
+                pths.push_back(path);
+                continue;
+            }
+
+            lex.error(current(), "Invalid import path.");
+            return nullptr;
+        }
+
+        return new ImportNode(pths);
+    }
     if(current().token == TOKEN_IDENTIFIER) {
         if(idx < tokens.size() - 1) {
             ORB_TOKEN& next = tokens[idx + 1];
@@ -290,9 +328,25 @@ AST* Parser::statement() {
                         continue;
                     }
 
-                    if(current().token == TOKEN_STRING || current().token == TOKEN_IDENTIFIER) {
+                    if (current().token == TOKEN_STRING) {
                         pths.push_back(current().value);
                         idx++;
+                        continue;
+                    } else if (current().token == TOKEN_IDENTIFIER) {
+                        std::string path = current().value;
+                        idx++;
+                        // assemble dotted identifiers like hello_world.obt
+                        while (idx < tokens.size() && current().token == TOKEN_FULL_STOP) {
+                            idx++; // consume '.'
+                            if (idx < tokens.size() && current().token == TOKEN_IDENTIFIER) {
+                                path += "." + current().value;
+                                idx++;
+                            } else {
+                                lex.error(current(), "Invalid import path.");
+                                return nullptr;
+                            }
+                        }
+                        pths.push_back(path);
                         continue;
                     }
 

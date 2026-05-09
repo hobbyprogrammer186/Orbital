@@ -39,6 +39,7 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 
 	while (idx < value.length()) {
 		char cur = value[idx];
+		int lastIDX = idx;
 
 		tkn.row = row;
 		tkn.col = col;
@@ -54,7 +55,10 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 		}
 		else if ((cur >= 'a' && cur <= 'z') || (cur >= 'A' && cur <= 'Z') || cur == '_') {
 			std::string word;
-			while (idx < value.length() && ((value[idx] >= 'a' && value[idx] <= 'z') || (value[idx] >= 'A' && value[idx] <= 'Z') || (value[idx] >= '0' && value[idx] <= '9') || value[idx] == '_')) {
+			while (idx < value.length() && ((value[idx] >= 'a' && value[idx] <= 'z')
+				|| (value[idx] >= 'A' && value[idx] <= 'Z') || (value[idx] >= '0' && value[idx] <= '9')
+				|| value[idx] == '_'))
+			{
 				word += value[idx++];
 			}
 			
@@ -181,11 +185,16 @@ std::vector<ORB_TOKEN> Lexer::Tokenize(std::string value, std::string filename) 
 		else if (cur == '.') {
 			tkn.token = TOKEN_FULL_STOP;
 			tkn.value = ".";
+			idx++;
 		}
 		else {
 			idx++;
 			continue;
 		}
+
+		if(idx == lastIDX)
+			idx++;
+
 		tkns.push_back(tkn);
 	}
 

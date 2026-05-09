@@ -137,7 +137,7 @@ class Parser {
 private:
     std::vector<ORB_TOKEN> tokens;
     Lexer lex;
-    std::vector<Lexer> mlex;
+    //std::vector<Lexer> mlex;
     size_t idx = 0;
     std::string fname; // filename associated with these tokens (for resolving relative imports)
 
