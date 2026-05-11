@@ -123,10 +123,10 @@ struct IfNode : AST {
 };
 
 struct ReturnNode : AST {
-    std::string value;
+    AST* value;
 
-    ReturnNode() {};
-    ReturnNode(std::string v) : value(v) {};
+    ReturnNode() : value(nullptr) {};
+    ReturnNode(AST* v) : value(v) {};
 };
 
 struct ImportNode : AST {

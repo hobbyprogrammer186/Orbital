@@ -12,12 +12,17 @@
 #include <fstream>
 #include <stdexcept>
 #include <filesystem>
+#include <cctype>
 #include <orbtlio.h>
+#include <orbt_math.h>
 #include <Parser.h>
+
+#include <map>
 
 namespace fs = std::filesystem;
 bool isInitialized = false;
-const std::map<std::string, std::unique_ptr<FunctionNode>> builtin = [] {
+static std::map<std::string, OBTModule*> functionModule;
+std::map<std::string, std::unique_ptr<FunctionNode>> builtin = [] {
     std::map<std::string, std::unique_ptr<FunctionNode>> m;
     m["print"] = std::make_unique<FunctionNode>("print", std::vector<std::string>{"text"});
 	m["exit"] = std::make_unique<FunctionNode>("exit", std::vector<std::string>{"code"});
@@ -36,11 +41,11 @@ bool isBuiltin(std::string function) {
 }
 
 void init() {
-	for (auto const& [name, node] : builtin) {
-		functionTable.emplace(name, node.get());
-	}
+    for (auto const& [name, node] : builtin) {
+        functionTable.emplace(name, node.get());
+    }
 
-	isInitialized = true;
+    isInitialized = true;
 }
 
 std::variant<double, long, int, std::string> vinput() {
@@ -75,6 +80,12 @@ std::variant<double, long, int, std::string> vinput() {
 }
 
 std::variant<double, long, int, std::string> exec(CallNode* cn) {
+    // dispatch to module owner if one exists for this function
+    auto mit = functionModule.find(cn->name);
+    if (mit != functionModule.end() && mit->second != nullptr) {
+        return mit->second->exec(cn);
+    }
+
 	if (cn->name == "print") {
 		std::cout << variableTable.find("text")->second.value << std::endl;
 		return 0L;
@@ -141,4 +152,34 @@ std::variant<double, long, int, std::string> exec(CallNode* cn) {
         }
         return 0L;
     }
+    return 0L;
+}
+
+void importBuiltin(const std::string& module) {
+    std::string lowered = module;
+    for (auto& x : lowered)
+        x = std::tolower(static_cast<unsigned char>(x));
+    
+    if (lowered == "math") {
+        static std::unique_ptr<OMath> omathModule;
+        if (!omathModule) {
+            omathModule = std::make_unique<OMath>();
+            omathModule->init();
+        }
+    }
+}
+
+void pushFunc(std::string name, std::optional<std::vector<std::string>> args, OBTModule* module) {
+    if (builtin.find(name) == builtin.end()) {
+        if (args.has_value())
+            builtin.emplace(name, std::make_unique<FunctionNode>(name, args.value()));
+        else
+            builtin.emplace(name, std::make_unique<FunctionNode>(name));
+    }
+
+    if (module)
+        functionModule[name] = module;
+
+    // ensure functionTable always points to the FunctionNode
+    functionTable[name] = builtin[name].get();
 }

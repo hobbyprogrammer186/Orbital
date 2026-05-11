@@ -1,0 +1,4 @@
+add(x, y, z):
+    return x + y + z
+
+print add input "Enter X:", input "Enter Y:", input "Enter Z:"

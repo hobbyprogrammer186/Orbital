@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/src/orbital",
       "args": [
-        "${workspaceFolder}/sample/import_test.obt"
+        "${workspaceFolder}/sample/tui.obt"
       ],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,

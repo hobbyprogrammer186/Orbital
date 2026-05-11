@@ -5,19 +5,29 @@
   "dependencies": [
     {
       "name": "ncurses",
-      "version>=": "6.5",
-      "platform": "!windows"
+      "platform": "!windows",
+      "version>=": "6.5"
     },
     {
       "name": "pdcurses",
-      "version>=": "3.9",
-      "platform": "windows"
-    }
+      "platform": "windows",
+      "version>=": "3.9"
+    },
+    "qtbase",
+    "qtdeclarative"
   ],
   "overrides": [
     {
       "name": "pdcurses",
       "version": "3.9#7"
+    },
+    {
+      "name": "qtbase",
+      "version": "6.8.0"
+    },
+    {
+      "name": "qtdeclarative",
+      "version": "6.8.0"
     }
   ]
 }

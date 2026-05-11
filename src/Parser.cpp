@@ -25,6 +25,89 @@ std::map<std::string, FunctionNode*> functionTable;
 static std::set<std::string> importedFiles;
 
 void Parser::Interpret() {
+    // Pre-scan tokens for top-level imports so builtin modules / files
+    // are loaded before parsing the rest of the file. This allows
+    // imported builtins (e.g. `tui`) to register functions prior to
+    // parsing so the parser recognizes them as functions.
+    size_t scanIdx = 0;
+    while (scanIdx < tokens.size()) {
+        if (tokens[scanIdx].token == TOKEN_IMPORT) {
+            scanIdx++; // consume 'import'
+            std::vector<std::string> pths;
+            while (scanIdx < tokens.size() && tokens[scanIdx].token != TOKEN_FULL_STOP && tokens[scanIdx].token != TOKEN_EOL && tokens[scanIdx].token != TOKEN_EOF) {
+                if (tokens[scanIdx].token == TOKEN_COMMA) { scanIdx++; continue; }
+
+                if (tokens[scanIdx].token == TOKEN_STRING) {
+                    pths.push_back(tokens[scanIdx].value);
+                    scanIdx++;
+                    continue;
+                } else if (tokens[scanIdx].token == TOKEN_IDENTIFIER) {
+                    std::string path = tokens[scanIdx].value;
+                    scanIdx++;
+                    while (scanIdx < tokens.size() && tokens[scanIdx].token == TOKEN_FULL_STOP) {
+                        scanIdx++; // consume '.'
+                        if (scanIdx < tokens.size() && tokens[scanIdx].token == TOKEN_IDENTIFIER) {
+                            path += "." + tokens[scanIdx].value;
+                            scanIdx++;
+                        } else {
+                            break;
+                        }
+                    }
+                    pths.push_back(path);
+                    continue;
+                }
+
+                // unknown token in import list; skip it
+                scanIdx++;
+            }
+
+            // process collected import paths now
+            for (const std::string& rawPath : pths) {
+                if (rawPath.empty()) continue;
+
+                // builtin modules take precedence when explicitly named
+                if (rawPath == "tui" || rawPath == "TUI" || rawPath == "orbt_tui" ||
+                    rawPath == "math" || rawPath == "Math" || rawPath == "orbt_math") {
+                    importBuiltin(rawPath);
+                    continue;
+                }
+
+                std::filesystem::path p(rawPath);
+                if (p.is_relative() && !fname.empty())
+                    p = std::filesystem::path(fname).parent_path() / p;
+
+                if (!p.has_extension())
+                    p += ".obt";
+
+                if (!std::filesystem::exists(p))
+                    continue;
+
+                std::filesystem::path canonical;
+                try { canonical = std::filesystem::canonical(p); }
+                catch(...) { canonical = std::filesystem::absolute(p); }
+
+                std::string canonicalStr = canonical.string();
+                if (importedFiles.find(canonicalStr) != importedFiles.end())
+                    continue;
+
+                importedFiles.insert(canonicalStr);
+
+                std::ifstream file(canonical);
+                if (!file.is_open()) continue;
+
+                std::stringstream buf;
+                buf << file.rdbuf();
+                std::string content = buf.str();
+                file.close();
+
+                Parser importer(content, canonicalStr);
+                importer.Interpret();
+            }
+        } else {
+            scanIdx++;
+        }
+    }
+
     std::vector<AST*> nodes = parse();
     for(AST* node : nodes) {
         Evalulate(node);
@@ -69,14 +152,29 @@ AST* Parser::factor() {
         return node;
     }
     else if(match(TOKEN_IDENTIFIER)) {
-        if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && tokens[idx].token == TOKEN_LPAREN) {
-            // parse parenthesized function call: identifier '(' [expr (',' expr)*] ')'
+        if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && (tokens[idx].token == TOKEN_LPAREN || (isBuiltin(tkn.value) && tokens[idx].token != TOKEN_RPAREN && tokens[idx].token != TOKEN_EOL))) {
+            // parse function call: identifier '(' [expr [',' expr]*] ')'  or builtin: input "prompt"
+            bool isNonParenBuiltin = isBuiltin(tkn.value) && tokens[idx].token != TOKEN_LPAREN;
+            if(isNonParenBuiltin) {
+                std::vector<AST*> args;
+                while(current().token != TOKEN_EOL && current().token != TOKEN_EOF && current().token != TOKEN_COMMA && current().token != TOKEN_SEMICOLON) {
+                    AST* a = comparison();
+                    if(!a) return nullptr;
+                    args.push_back(a);
+                }
+                if(!args.empty())
+                    return new CallNode(tkn.value, args);
+                else
+                    return new CallNode(tkn.value);
+            }
             idx++; // skip '('
 
             std::vector<AST*> args;
             // If immediate closing paren, return empty-arg call
             if (current().token != TOKEN_RPAREN) {
                 while (true) {
+                    if(current().token == TOKEN_SEMICOLON || current().token == TOKEN_EOL)
+                        break;
                     AST* a = comparison();
                     if (!a) return nullptr;
                     args.push_back(a);
@@ -100,10 +198,10 @@ AST* Parser::factor() {
                 idx++;
             
             std::vector<AST*> args;
-            while(current().token != TOKEN_EOL && current().token != TOKEN_EOF) {
+            while(current().token != TOKEN_EOL && current().token != TOKEN_EOF && current().token != TOKEN_SEMICOLON) {
                 args.push_back(comparison());
 
-                if(functionTable.find(current().value) != functionTable.end()) {
+                if(functionTable.find(current().value) != functionTable.end() && !isBuiltin(current().value)) {
                     std::string functionName = current().value;
                     std::vector<AST*> fargs;
                     idx++;
@@ -133,10 +231,11 @@ AST* Parser::factor() {
                     args.push_back(new StringNode(str_val));
                 }
 
-                if(current().token == TOKEN_COMMA)
+                if(current().token == TOKEN_COMMA) {
                     idx++;
-                else
-                    break;
+                    continue;
+                }
+                break;
             }
 
             if(!args.empty())
@@ -312,12 +411,6 @@ AST* Parser::statement() {
                 else
                     return new IfNode(cond);
             }
-            else if(current().token == TOKEN_RETURN) {
-                if(next.value == "")
-                    return new ReturnNode();
-                else
-                    return new ReturnNode(next.value);
-            }
             else if(current().token == TOKEN_IMPORT) {
                 // parse: import <path1>, <path2> .
                 idx++; // consume 'import'
@@ -357,6 +450,13 @@ AST* Parser::statement() {
                 return new ImportNode(pths);
             }
         }
+    }
+    else if(current().token == TOKEN_RETURN) {
+        idx++;
+        AST* retVal = nullptr;
+        if(current().token != TOKEN_EOL && current().token != TOKEN_EOF)
+            retVal = comparison();
+        return new ReturnNode(retVal);
     }
     else if(current().token == TOKEN_IF) {
         idx++;
@@ -421,6 +521,11 @@ AST* Parser::parseFunction() {
             functionTable.erase(name);
         }
         
+        // create a placeholder function entry so recursive calls inside the
+        // function body can resolve to this function
+        FunctionNode* placeholder = new FunctionNode(name);
+        functionTable[name] = placeholder;
+
         idx++;
         if(current().token == TOKEN_EOL)
             idx++;
@@ -441,27 +546,35 @@ AST* Parser::parseFunction() {
                 idx++;
         }
         
-        // std::move can be expect in some cases if variable value is empty
-        if(!body.empty()) {
-            if(!args.empty())
-                fn = new FunctionNode(name, args, body);
-            else
-                fn = new FunctionNode(name, body);
-        }
-        else {
-            if(!args.empty())
-                fn = new FunctionNode(name, args);
-            else
-                fn = new FunctionNode(name);
-        }
-        functionTable[name] = fn;
-        return fn;
+        // assign parsed body/args to the placeholder function
+        if (!body.empty())
+            functionTable[name]->body = std::move(body);
+        if (!args.empty())
+            functionTable[name]->args = std::move(args);
+        return functionTable[name];
     }
     else if(current().token == TOKEN_LPAREN && current().value == "(") {
         idx++;
-        current().token == TOKEN_EOL;
-        
-        idx++;
+        while(current().token == TOKEN_EOL)
+            idx++;
+
+        while(current().token != TOKEN_RPAREN && current().token != TOKEN_EOF) {
+            if(current().token == TOKEN_IDENTIFIER) {
+                args.push_back(current().value);
+                idx++;
+            }
+            if(current().token == TOKEN_COMMA)
+                idx++;
+            while(current().token == TOKEN_EOL)
+                idx++;
+        }
+
+        if(current().token == TOKEN_RPAREN)
+            idx++;
+
+        while(current().token == TOKEN_EOL)
+            idx++;
+
         if(current().token == TOKEN_ASIGNMENT && current().value == ":") {
             if(isBuiltin(name)) {
                 lex.error(current(), "Builtin Funciton Cannot Be Overrided/Overwritten.");
@@ -693,8 +806,11 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             }
         }
         for (AST* stmt : fn->body) {
-            if(auto ret = dynamic_cast<ReturnNode*>(stmt))
-                return ret->value;
+            if(auto ret = dynamic_cast<ReturnNode*>(stmt)) {
+                if(ret->value)
+                    return Evalulate(ret->value);
+                return 0L;
+            }
             else
                 Evalulate(stmt);
         }
@@ -714,8 +830,11 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             if(condStr == "True" || condStr == "False") {
                 if(condStr == "True") {
                     for(AST* stmt : ifnd->body) {
-                        if(auto ret = dynamic_cast<ReturnNode*>(stmt))
-                            return ret->value;
+                        if(auto ret = dynamic_cast<ReturnNode*>(stmt)) {
+                            if(ret->value)
+                                return Evalulate(ret->value);
+                            return 0L;
+                        }
                         Evalulate(stmt);
                     }
                     
@@ -820,6 +939,13 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
         for (const std::string& rawPath : ld->files) {
             if (rawPath.empty())
                 continue;
+
+            // If requested module matches a builtin module name, import builtin
+            if (rawPath == "tui" || rawPath == "TUI" || rawPath == "orbt_tui" ||
+                rawPath == "math" || rawPath == "Math" || rawPath == "orbt_math") {
+                importBuiltin(rawPath);
+                continue;
+            }
 
             std::filesystem::path p(rawPath);
             if (p.is_relative() && !fname.empty()) {

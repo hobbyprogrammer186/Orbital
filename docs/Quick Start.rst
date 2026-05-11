@@ -84,3 +84,11 @@ Write File Example:
 Notes
 -----
 - Write Function Can Be Overwrite The file when called in orbital interpreter. Please Be Careful.
+
+Intent Function Usage In Function
+
+.. code-block:: orbital
+    add(x, y, z):
+        return x + y + z
+    
+    print add input "Enter X:", input "Enter Y:", input "Enter Z:"

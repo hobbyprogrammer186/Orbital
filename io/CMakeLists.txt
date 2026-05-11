@@ -1,5 +1,7 @@
 add_library(orbtlio
-	orbtlio.cpp
+    orbtlio.cpp
+    orbt_math.cpp
+    
 )
 
 set_target_properties(orbtlio PROPERTIES
