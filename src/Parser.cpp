@@ -151,16 +151,28 @@ AST* Parser::factor() {
         expect(TOKEN_RPAREN, "Bracket Is Not Terminated.");
         return node;
     }
+    else if(match(TOKEN_PLUS)) {
+        return factor();
+    }
+    else if(match(TOKEN_MINUS)) {
+        AST* operand = factor();
+        if(!operand) return nullptr;
+        return new BinOpNode(new NumberNode(0), TOKEN_MINUS, operand);
+    }
     else if(match(TOKEN_IDENTIFIER)) {
         if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && (tokens[idx].token == TOKEN_LPAREN || (isBuiltin(tkn.value) && tokens[idx].token != TOKEN_RPAREN && tokens[idx].token != TOKEN_EOL))) {
             // parse function call: identifier '(' [expr [',' expr]*] ')'  or builtin: input "prompt"
             bool isNonParenBuiltin = isBuiltin(tkn.value) && tokens[idx].token != TOKEN_LPAREN;
             if(isNonParenBuiltin) {
+                auto it = functionTable.find(tkn.value);
+                size_t expectedArgs = (it != functionTable.end()) ? it->second->args.size() : 0;
                 std::vector<AST*> args;
-                while(current().token != TOKEN_EOL && current().token != TOKEN_EOF && current().token != TOKEN_COMMA && current().token != TOKEN_SEMICOLON) {
+                while(args.size() < expectedArgs && current().token != TOKEN_EOL && current().token != TOKEN_EOF && current().token != TOKEN_SEMICOLON && current().token != TOKEN_RPAREN) {
                     AST* a = comparison();
                     if(!a) return nullptr;
                     args.push_back(a);
+                    if(current().token == TOKEN_COMMA && args.size() < expectedArgs)
+                        idx++; // consume comma and continue
                 }
                 if(!args.empty())
                     return new CallNode(tkn.value, args);
@@ -193,12 +205,12 @@ AST* Parser::factor() {
             else
                 return new CallNode(tkn.value);
         }
-        else if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && current().token != TOKEN_LPAREN) {
-            while(current().value == tkn.value)
+        else if(functionTable.find(tkn.value) != functionTable.end() && idx < tokens.size() && current().token != TOKEN_LPAREN && current().token != TOKEN_RPAREN) {
+            while(idx < tokens.size() && current().token == TOKEN_IDENTIFIER && current().value == tkn.value)
                 idx++;
             
             std::vector<AST*> args;
-            while(current().token != TOKEN_EOL && current().token != TOKEN_EOF && current().token != TOKEN_SEMICOLON) {
+            while(current().token != TOKEN_EOL && current().token != TOKEN_EOF && current().token != TOKEN_SEMICOLON && current().token != TOKEN_RPAREN) {
                 args.push_back(comparison());
 
                 if(functionTable.find(current().value) != functionTable.end() && !isBuiltin(current().value)) {
@@ -247,7 +259,8 @@ AST* Parser::factor() {
             return new VariableNode(tkn.value, tkn.row, tkn.col);
     }
     else {
-        lex.error(current(), "Invalid Bracket.");
+        std::string msg = "Unexpected token '" + current().value + "'";
+        lex.error(current(), msg);
         return nullptr;
     }
 }
@@ -760,8 +773,8 @@ std::variant<double, long, int, std::string> Parser::Evalulate(AST* node) {
             return 0L;
         }
         else if(fn->args.size() < c->args.size()) {
-            std::string totalArgs = std::to_string(fn->args.size() - c->args.size());
-            lex.error(current(), "Over " + totalArgs + " Parameter/Argurement Found But Not Defiend " + totalArgs + " Overload On The" + c->name + " Function.");
+            std::string totalArgs = std::to_string(c->args.size() - fn->args.size());
+            lex.error(current(), totalArgs + " Extra Argument/Parameter Found But Not Defiend On The " + c->name + " Function.");
             return 0L;
         }
 
